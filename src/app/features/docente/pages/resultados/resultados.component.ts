@@ -169,7 +169,7 @@ interface SesionInfo {
         <!-- ── Tabla de resultados ── -->
         @if (filas().length === 0) {
           <app-empty-state
-            icono="document"
+            icono="default"
             titulo="Sin resultados aún"
             descripcion="Ningún alumno ha enviado el examen todavía."
           />

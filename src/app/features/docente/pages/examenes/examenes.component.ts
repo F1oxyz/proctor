@@ -13,9 +13,7 @@ import {
   ChangeDetectionStrategy,
   inject,
   signal,
-  computed,
   OnInit,
-  viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
@@ -32,7 +30,7 @@ import {
   LoadingSpinnerComponent,
 } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { ModalIniciarExamenComponent } from './components/modal-iniciar-examen/modal-iniciar-examen.component';
-import { ExamenCompleto, IniciarExamenPayload } from '../../services/examenes.service';
+import { ExamenConGrupo, IniciarExamenPayload } from '../../services/examenes.service';
 import { DatePipe } from '@angular/common';
 
 @Component({
@@ -86,7 +84,7 @@ import { DatePipe } from '@angular/common';
       <!-- Lista vacía -->
       @else if (servicio.examenes().length === 0) {
         <app-empty-state
-          icono="document"
+          icono="examenes"
           titulo="Sin exámenes creados"
           descripcion="Crea tu primer examen para comenzar a evaluar a tus alumnos."
         />
@@ -204,8 +202,8 @@ export class ExamenesComponent implements OnInit {
   private readonly router = inject(Router);
 
   // ── Estado ───────────────────────────────────────────────────────
-  readonly examenParaIniciar  = signal<ExamenCompleto | null>(null);
-  readonly examenParaEliminar = signal<ExamenCompleto | null>(null);
+  readonly examenParaIniciar  = signal<ExamenConGrupo | null>(null);
+  readonly examenParaEliminar = signal<ExamenConGrupo | null>(null);
   readonly iniciandoExamen    = signal(false);
 
   // ── Ciclo de vida ─────────────────────────────────────────────
@@ -219,7 +217,7 @@ export class ExamenesComponent implements OnInit {
 
   // ── Handlers ─────────────────────────────────────────────────────
 
-  abrirModalIniciar(examen: ExamenCompleto): void {
+  abrirModalIniciar(examen: ExamenConGrupo): void {
     this.examenParaIniciar.set(examen);
   }
 
@@ -227,7 +225,7 @@ export class ExamenesComponent implements OnInit {
     this.examenParaIniciar.set(null);
   }
 
-  confirmarEliminar(examen: ExamenCompleto): void {
+  confirmarEliminar(examen: ExamenConGrupo): void {
     this.examenParaEliminar.set(examen);
   }
 
@@ -236,6 +234,12 @@ export class ExamenesComponent implements OnInit {
     if (!examen) return;
     await this.servicio.eliminarExamen(examen.id);
     this.examenParaEliminar.set(null);
+  }
+
+  /** Cierra modal y limpia estado al recibir evento (cerrar) del modal */
+  onCerrarModal(): void {
+    this.examenParaIniciar.set(null);
+    this.iniciandoExamen.set(false);
   }
 
   /**

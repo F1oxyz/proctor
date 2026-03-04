@@ -35,6 +35,15 @@ import {
   Opcion,
 } from '../../../shared/models';
 
+/** Examen con nombre de grupo incluido via JOIN (para la lista de exámenes) */
+export type ExamenConGrupo = Examen & { grupos?: { nombre: string } | null };
+
+/** Payload que el modal emite al padre para iniciar una sesión */
+export interface IniciarExamenPayload {
+  examenId: string;
+  grupoId: string;
+}
+
 /** Payload para crear/editar una opción de respuesta */
 export interface OpcionPayload {
   texto: string;
@@ -70,8 +79,8 @@ export class ExamenesService {
 
   // ── Estado reactivo ────────────────────────────────────
 
-  /** Lista de exámenes del docente (sin preguntas, solo metadata) */
-  readonly examenes = signal<Examen[]>([]);
+  /** Lista de exámenes del docente (sin preguntas, solo metadata + nombre de grupo) */
+  readonly examenes = signal<ExamenConGrupo[]>([]);
 
   /** Examen actualmente en edición (cargado completo con preguntas) */
   readonly examenActivo = signal<ExamenCompleto | null>(null);
@@ -96,7 +105,7 @@ export class ExamenesService {
     try {
       const { data, error } = await this.supabase
         .from('examenes')
-        .select('*')
+        .select('*, grupos(nombre)')
         .order('creado_en', { ascending: false });
 
       if (error) throw error;

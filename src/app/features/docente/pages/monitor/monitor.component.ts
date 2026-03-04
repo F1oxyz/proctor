@@ -39,7 +39,7 @@ import {
   OnInit,
   OnDestroy,
 } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { SesionesService }       from '../../services/sesiones.service';
 import { PeerService }           from '../../../../core/services/peer.service';
@@ -51,7 +51,6 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
   selector: 'app-monitor',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    RouterLink,
     MonitorNavbarComponent,
     AlumnoTileComponent,
   ],

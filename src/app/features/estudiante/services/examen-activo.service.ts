@@ -168,15 +168,15 @@ export class ExamenActivoService {
     this.error.set(null);
 
     // 1. Buscar la sesión por código
+    // NOTA: grupo_id NO está en sesiones — está en examenes → se obtiene via JOIN
     const { data: sesionData, error: sesionError } = await this.supabase.client
       .from('sesiones')
       .select(`
         id,
         examen_id,
-        grupo_id,
         codigo_acceso,
         estado,
-        examenes ( titulo, duracion_min )
+        examenes ( titulo, duracion_min, grupo_id )
       `)
       .eq('codigo_acceso', codigo.trim().toUpperCase())
       .single();
@@ -194,13 +194,22 @@ export class ExamenActivoService {
       return false;
     }
 
+    const examenJoin = (sesionData as any).examenes;
+    const grupoId    = examenJoin?.grupo_id ?? '';
+
+    if (!grupoId) {
+      this.error.set('No se pudo determinar el grupo del examen.');
+      this.cargando.set(false);
+      return false;
+    }
+
     // Guardar datos de la sesión
     this.sesion.set({
       id:            sesionData.id,
       examen_id:     sesionData.examen_id,
-      examen_titulo: (sesionData as any).examenes?.titulo ?? '—',
-      grupo_id:      sesionData.grupo_id,
-      duracion_min:  (sesionData as any).examenes?.duracion_min ?? 30,
+      examen_titulo: examenJoin?.titulo ?? '—',
+      grupo_id:      grupoId,
+      duracion_min:  examenJoin?.duracion_min ?? 30,
       codigo_acceso: sesionData.codigo_acceso,
     });
 
@@ -208,7 +217,7 @@ export class ExamenActivoService {
     const { data: alumnosData, error: alumnosError } = await this.supabase.client
       .from('alumnos')
       .select('id, nombre_completo')
-      .eq('grupo_id', sesionData.grupo_id)
+      .eq('grupo_id', grupoId)
       .order('nombre_completo', { ascending: true });
 
     if (alumnosError) {

@@ -28,7 +28,8 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
   selector: 'app-sala-espera',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, ScreenSharePromptComponent],
-  providers: [ExamenActivoService],
+  // ExamenActivoService viene del ExamenShellComponent (padre de ruta)
+  // NO se declara providers aquí — se destruiría al navegar a /evaluacion
   template: `
     <div class="min-h-screen bg-gray-100 flex flex-col">
 
@@ -286,6 +287,8 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
 
     if (ok) {
       const codigo = this.route.snapshot.paramMap.get('codigo');
+      // Marcar en sessionStorage para que el sessionGuard permita /evaluacion
+      sessionStorage.setItem(`proctor_alumno_${codigo}`, alumno.id);
       this.router.navigate(['/examen', codigo, 'evaluacion']);
     }
   }

@@ -50,8 +50,11 @@ export const routes: Routes = [
   },
 
   // Estudiante (sin auth, solo código válido)
+  // ExamenShellComponent provee ExamenActivoService para toda la jerarquía
   {
     path: 'examen/:codigo',
+    loadComponent: () =>
+      import('./features/estudiante/pages/examen-shell.component').then(m => m.ExamenShellComponent),
     children: [
       {
         path: '',

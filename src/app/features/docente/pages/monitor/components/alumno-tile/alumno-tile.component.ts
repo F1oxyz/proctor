@@ -35,9 +35,8 @@ import {
   effect,
   ElementRef,
   viewChild,
-  afterNextRender,
 } from '@angular/core';
-import { SesionAlumnoConDatos } from '../../../../../shared/models/index';
+import { SesionAlumnoConDatos } from '../../../../../../shared/models/index';
 
 /** Estado visual del tile (distinto del estado DB) */
 export type EstadoTile = 'activo' | 'idle' | 'flagged' | 'offline' | 'enviado';

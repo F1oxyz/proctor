@@ -21,10 +21,12 @@ import {
   computed,
   booleanAttribute,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 
 @Component({
   selector: 'app-loading-spinner',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NgTemplateOutlet],
   template: `
     @if (overlay()) {
       <!-- Overlay de pantalla completa -->

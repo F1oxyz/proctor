@@ -19,7 +19,7 @@ import {
   input,
   computed,
 } from '@angular/core';
-import { SesionAlumnoConDatos } from '../../../../../shared/models/index';
+import { SesionAlumnoConDatos } from '../../../../../../shared/models/index';
 
 @Component({
   selector: '[app-fila-resultado]', // selector de atributo para usar en <tr>

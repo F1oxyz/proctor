@@ -72,11 +72,10 @@ export interface SesionAlumno {
 }
 
 /**
- * SesionAlumno con datos del alumno incluidos via JOIN.
+ * SesionAlumno con nombre del alumno aplanado desde el JOIN.
  * Se usa en el panel de monitoreo y en la tabla de resultados.
  */
 export interface SesionAlumnoConDatos extends SesionAlumno {
-  alumno: {
-    nombre_completo: string;
-  };
+  /** Nombre completo del alumno aplanado desde alumnos.nombre_completo */
+  alumno_nombre: string;
 }
