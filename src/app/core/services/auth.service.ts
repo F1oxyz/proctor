@@ -42,6 +42,13 @@ export class AuthService {
         }
       });
       if (error) throw error;
+
+      // Actualizar estado local si Supabase devuelve sesión (depende de configuración de confirmación de email)
+      if (data.session) {
+        this.session.set(data.session);
+        this.currentUser.set(data.session.user);
+      }
+
       return { data, error: null };
     } catch (error: any) {
       return { data: null, error };
@@ -58,6 +65,13 @@ export class AuthService {
     try {
       const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+
+      // CRITICAL: Actualizar signals ANTES de navegar para que el Guard los vea
+      if (data.session) {
+        this.session.set(data.session);
+        this.currentUser.set(data.session.user);
+      }
+
       await this.router.navigate(['/docente/grupos']);
       return { data, error: null };
     } catch (error: any) {
