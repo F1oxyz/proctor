@@ -1,31 +1,34 @@
-// =============================================================
-// features/docente/pages/monitor/monitor.component.ts
-//
-// Sala de monitoreo en vivo del docente.
-// Ruta: /docente/monitor/:sesionId
-//
-// El parámetro sesionId viene via withComponentInputBinding().
-//
-// Funcionalidades:
-//   - Grid de AlumnoTileComponent (4 columnas en desktop)
-//   - Navbar en modo 'monitor' con: código de acceso, contador
-//     de alumnos activos, tiempo restante, botón "End Session"
-//   - Barra de estado inferior: conteo por categoría
-//   - Botón "Broadcast" para enviar mensaje a todos (placeholder)
-//   - Modal de pantalla expandida al hacer clic en una tile
-//   - Indicador "Last synced" con tiempo desde última actualización
-//
-// Flujo de inicio:
-//   1. OnInit → SesionesService.cargarSesion(sesionId)
-//     - Carga metadata de la sesión
-//     - Carga alumnos conectados
-//     - Suscribe Realtime de Supabase
-//   2. PeerService.inicializarComoReceptor(sesionId)
-//     - Crea Peer con ID predecible
-//   3. PeerService.escucharLlamadas()
-//     - Acepta streams entrantes de alumnos
-//   4. Computed: mapear alumnosConectados ↔ streams de PeerService
-// =============================================================
+/**
+ * monitor.component.ts
+ * ─────────────────────────────────────────────────────────────────
+ * Panel principal de monitoreo en vivo. RF-04.
+ * Ruta: /docente/monitor/:sesionId  (protegida por authGuard)
+ *
+ * RESPONSABILIDADES:
+ *  - Cargar la sesión y arrancar Supabase Realtime (SesionesService)
+ *  - Inicializar PeerJS como receptor de streams (PeerService)
+ *  - Mostrar el grid de AlumnoTileComponent (4 columnas en desktop)
+ *  - Leyenda de estados en el footer (Active/Idle/Flagged/Offline)
+ *  - Temporizador regresivo del examen
+ *  - Botón "End Session" → confirmar → finalizar → navegar a resultados
+ *  - Modal de pantalla completa al expandir un tile
+ *
+ * DISEÑO (según PDF - página 6):
+ *  - Header fijo (MonitorNavbarComponent)
+ *  - Grid 4 columnas con las cards de alumnos
+ *  - Footer con leyenda de estados + "Last synced: Just now"
+ *
+ * INTEGRACIÓN:
+ *  - SesionesService provee la lista reactiva via Supabase Realtime
+ *  - PeerService provee los streams WebRTC en tiempo real
+ *  - Cruza ambas fuentes por alumno_id para mostrar stream en el tile correcto
+ *
+ * ARQUITECTURA:
+ *  - Provee SesionesService (se destruye al salir de la ruta)
+ *  - PeerService viene de core (singleton en root)
+ *  - OnPush
+ * ─────────────────────────────────────────────────────────────────
+ */
 
 import {
   Component,
@@ -35,427 +38,388 @@ import {
   computed,
   OnInit,
   OnDestroy,
-  input,
 } from '@angular/core';
-import { Router } from '@angular/router';
-import { FormsModule } from '@angular/forms';
-import { SesionesService } from '../../services/sesiones.service';
-import { PeerService } from '../../../../core/services/peer.service';
-import { AlumnoTileComponent } from './components/alumno-tile/alumno-tile.component';
-import { NavbarComponent } from '../../../../shared/components/navbar/navbar.component';
-import { BtnComponent } from '../../../../shared/components/btn/btn.component';
-import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
-import { TiempoFormatoPipe } from '../../../../shared/pipes/tiempo-formato.pipe';
-import { SesionAlumnoConDatos } from '../../../../shared/models';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+
+import { SesionesService }       from '../../services/sesiones.service';
+import { PeerService }           from '../../../../core/services/peer.service';
+import { MonitorNavbarComponent } from './components/monitor-navbar/monitor-navbar.component';
+import { AlumnoTileComponent }   from './components/alumno-tile/alumno-tile.component';
+import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
 
 @Component({
   selector: 'app-monitor',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [SesionesService],
   imports: [
-    FormsModule,
-    NavbarComponent,
-    BtnComponent,
-    LoadingSpinnerComponent,
+    RouterLink,
+    MonitorNavbarComponent,
     AlumnoTileComponent,
-    TiempoFormatoPipe,
   ],
+  providers: [SesionesService],
   template: `
-    <div class="min-h-screen bg-gray-50 flex flex-col">
+    <div class="min-h-screen bg-slate-100 flex flex-col">
 
-      <!-- ── Navbar Monitor ─────────────────────────────── -->
-      <header class="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between">
-        <!-- Izquierda: Logo + sesión -->
-        <div class="flex items-center gap-3">
-          <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3z"/>
+      <!-- ── Navbar del monitor ── -->
+      <app-monitor-navbar
+        [tituloExamen]="sesiones.sesionActiva()?.examen_titulo ?? ''"
+        [codigoExamen]="sesiones.sesionActiva()?.grupo_nombre ?? ''"
+        [codigoAcceso]="sesiones.sesionActiva()?.codigo_acceso ?? ''"
+        [alumnosConectados]="alumnosConectados()"
+        [totalAlumnos]="sesiones.alumnosEnSesion().length"
+        [segundosRestantes]="segundosRestantes()"
+        (finalizarSesion)="confirmarFinalizacion()"
+      />
+
+      <!-- ── Contenido principal ── -->
+      <main class="flex-1 px-4 py-6 max-w-screen-2xl mx-auto w-full">
+
+        <!-- ── Loading inicial ── -->
+        @if (sesiones.cargando() && sesiones.alumnosEnSesion().length === 0) {
+          <div class="flex flex-col items-center justify-center py-24 gap-3">
+            <svg class="w-8 h-8 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
             </svg>
+            <p class="text-sm text-slate-500">Conectando al monitor...</p>
           </div>
-          <div>
-            <p class="text-xs font-semibold text-slate-800">Proctor View</p>
-            <p class="text-xs text-slate-400">
-              Session #{{ sesionId()?.substring(0, 4)?.toUpperCase() }}
-            </p>
-          </div>
-        </div>
+        }
 
-        <!-- Centro: indicador Live Monitoring -->
-        <div class="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full">
-          <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" aria-hidden="true"></span>
-          <span class="text-xs font-semibold text-emerald-700">Live Monitoring</span>
-        </div>
-
-        <!-- Derecha: Acciones -->
-        <div class="flex items-center gap-3">
-          <button
-            class="p-2 rounded-lg text-slate-500 hover:bg-gray-50 transition-colors cursor-pointer"
-            aria-label="Configuración"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        <!-- ── Estado de PeerJS ── -->
+        @if (peer.inicializando()) {
+          <div class="mb-4 flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
+            <svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
             </svg>
-          </button>
-
-          <app-btn
-            variante="danger"
-            tamano="sm"
-            [loading]="sesionesService.cargando()"
-            (clicked)="confirmarTerminar()"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-            </svg>
-            End Session
-          </app-btn>
-        </div>
-      </header>
-
-      <!-- ── Subheader: info del examen ─────────────────── -->
-      <div class="bg-white border-b border-gray-50 px-6 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <!-- Código de examen -->
-          @if (sesionesService.sesionActiva()) {
-            <div>
-              <span class="text-xs text-slate-400">Código de acceso</span>
-              <p class="text-lg font-bold text-slate-800 tracking-widest font-mono">
-                {{ sesionesService.sesionActiva()!.codigo_acceso }}
-              </p>
-            </div>
-          }
-
-          <div class="w-px h-8 bg-gray-100" aria-hidden="true"></div>
-
-          <!-- Alumnos conectados -->
-          <div class="flex items-center gap-1.5 text-sm text-slate-600">
-            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87M15 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-            </svg>
-            <span class="font-semibold">{{ alumnosActivos() }}/{{ sesionesService.alumnosConectados().length }}</span>
-            <span class="text-slate-400">Students</span>
+            Inicializando transmisión WebRTC...
           </div>
-        </div>
+        }
 
-        <!-- Búsqueda + Broadcast -->
-        <div class="flex items-center gap-3">
-          <div class="relative">
-            <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-              </svg>
-            </div>
-            <input
-              type="search"
-              [(ngModel)]="busqueda"
-              placeholder="Search student..."
-              class="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg w-48
-                     focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                     transition-colors text-slate-700 placeholder-slate-400"
-            />
+        @if (peer.error()) {
+          <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+            {{ peer.error() }} — Los alumnos podrán conectarse pero no se verán sus pantallas.
           </div>
+        }
 
-          <app-btn variante="secondary" tamano="sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/>
-            </svg>
-            Broadcast
-          </app-btn>
-        </div>
-      </div>
-
-      <!-- ── Contenido principal ──────────────────────── -->
-      <main class="flex-1 p-6">
-
-        @if (sesionesService.cargando() && sesionesService.alumnosConectados().length === 0) {
-          <app-loading-spinner tamano="md" mensaje="Iniciando sala de monitoreo..." />
-        } @else if (sesionesService.error()) {
-          <div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600">
-            {{ sesionesService.error() }}
-          </div>
-        } @else if (alumnosFiltrados().length === 0 && sesionesService.alumnosConectados().length === 0) {
-          <!-- Estado vacío: esperando que se conecten alumnos -->
-          <div class="flex flex-col items-center justify-center h-64 gap-4">
-            <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center">
-              <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-              </svg>
-            </div>
-            <div class="text-center">
-              <p class="text-sm font-semibold text-slate-600">Esperando estudiantes...</p>
-              <p class="text-xs text-slate-400 mt-1">
-                Comparte el código
-                <strong class="font-mono text-slate-600">
-                  {{ sesionesService.sesionActiva()?.codigo_acceso ?? '——' }}
-                </strong>
-                con tus alumnos
-              </p>
-            </div>
-          </div>
-        } @else {
-          <!-- Grid de tiles de alumnos -->
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            @for (alumno of alumnosFiltrados(); track alumno.id) {
+        <!-- ── Grid de tiles ── -->
+        @if (sesiones.alumnosEnSesion().length > 0) {
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4">
+            @for (alumno of sesiones.alumnosEnSesion(); track alumno.alumno_id) {
               <app-alumno-tile
                 [alumno]="alumno"
-                [stream]="streamDeAlumno(alumno.peer_id)"
-                (expandir)="abrirExpandido($event)"
+                [stream]="streamDeAlumno(alumno.alumno_id)"
+                (expandir)="abrirPantallaCompleta($event)"
+                (enviarRecordatorio)="enviarRecordatorio($event)"
               />
             }
           </div>
         }
 
+        <!-- Estado vacío: ningún alumno se ha unido aún -->
+        @else if (!sesiones.cargando()) {
+          <div class="flex flex-col items-center justify-center py-24 gap-4">
+            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
+              </svg>
+            </div>
+            <p class="text-sm font-medium text-slate-600">Esperando que los alumnos se conecten...</p>
+            <p class="text-xs text-slate-400">
+              Código de acceso:
+              <span class="font-mono font-bold text-slate-700 text-sm bg-slate-100 px-2 py-0.5 rounded ml-1">
+                {{ sesiones.sesionActiva()?.codigo_acceso }}
+              </span>
+            </p>
+          </div>
+        }
+
       </main>
 
-      <!-- ── Barra de estado inferior ─────────────────── -->
-      <footer class="bg-white border-t border-gray-100 px-6 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-5 text-xs">
-          <span class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-500" aria-hidden="true"></span>
-            <span class="text-slate-600">Active ({{ alumnosActivos() }})</span>
-          </span>
-          <span class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-amber-400" aria-hidden="true"></span>
-            <span class="text-slate-600">Idle ({{ alumnosIdle() }})</span>
-          </span>
-          <span class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-red-500" aria-hidden="true"></span>
-            <span class="text-slate-600">Flagged (0)</span>
-          </span>
-          <span class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-gray-300" aria-hidden="true"></span>
-            <span class="text-slate-600">Offline ({{ alumnosOffline() }})</span>
-          </span>
-        </div>
+      <!-- ── Footer: leyenda + última sincronización ── -->
+      <footer class="px-4 py-3 bg-white border-t border-slate-200">
+        <div class="max-w-screen-2xl mx-auto flex items-center justify-between flex-wrap gap-2">
 
-        <!-- Último sync -->
-        <span class="text-xs text-slate-400 flex items-center gap-1.5">
-          Last synced: Just now
-          <button
-            class="text-blue-500 hover:text-blue-700 cursor-pointer"
-            (click)="sincronizar()"
-            aria-label="Sincronizar ahora"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
-          </button>
-        </span>
-      </footer>
+          <!-- Leyenda de estados -->
+          <div class="flex items-center gap-4 flex-wrap text-xs text-slate-500">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+              Active ({{ conteoEstado('activo') }})
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
+              Idle ({{ conteoEstado('idle') }})
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+              Flagged ({{ conteoEstado('flagged') }})
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+              Offline ({{ conteoEstado('offline') }})
+            </span>
+          </div>
 
-      <!-- ── Modal pantalla expandida ───────────────────── -->
-      @if (alumnoExpandido()) {
-        <div
-          class="fixed inset-0 z-50 bg-black/90 flex flex-col"
-          role="dialog"
-          aria-modal="true"
-          [attr.aria-label]="'Pantalla de ' + alumnoExpandido()!.alumno?.nombre_completo"
-        >
-          <!-- Header del modal -->
-          <div class="flex items-center justify-between px-6 py-4">
-            <div class="flex items-center gap-3">
-              <span class="text-sm font-semibold text-white">
-                {{ alumnoExpandido()!.alumno?.nombre_completo }}
-              </span>
-              <span class="text-xs text-gray-400">{{ alumnoExpandido()!.estado }}</span>
-            </div>
+          <!-- Última sincronización -->
+          <span class="text-xs text-slate-400 flex items-center gap-1">
+            Last synced: Just now
             <button
-              (click)="alumnoExpandido.set(null)"
-              class="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10
-                     transition-colors cursor-pointer"
-              aria-label="Cerrar vista expandida"
+              type="button"
+              (click)="sincronizarManual()"
+              class="ml-1 text-blue-500 hover:text-blue-600 transition-colors"
+              aria-label="Sincronizar ahora"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
-          </div>
+          </span>
 
-          <!-- Video expandido -->
-          <div class="flex-1 flex items-center justify-center p-6">
-            @if (streamDeAlumno(alumnoExpandido()!.peer_id)) {
-              <video
-                #videoExpandido
-                autoplay
-                muted
-                playsinline
-                class="max-w-full max-h-full rounded-lg"
-              ></video>
-            } @else {
-              <div class="text-gray-500 text-center">
-                <svg class="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                </svg>
-                <p class="text-sm">Sin stream disponible</p>
-              </div>
-            }
-          </div>
         </div>
-      }
-
-      <!-- ── Confirmación terminar sesión ─────────────── -->
-      @if (mostrarConfirmTerminar()) {
-        <div
-          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-          role="dialog" aria-modal="true"
-        >
-          <div class="bg-white rounded-xl border border-gray-100 shadow-xl p-6 max-w-sm w-full">
-            <h3 class="text-base font-semibold text-slate-800 mb-1">¿Terminar sesión?</h3>
-            <p class="text-sm text-slate-500 mb-5">
-              Esta acción desconectará a todos los alumnos y finalizará el examen.
-              No se puede deshacer.
-            </p>
-            <div class="flex justify-end gap-3">
-              <button
-                (click)="mostrarConfirmTerminar.set(false)"
-                class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-gray-50
-                       rounded-lg transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <app-btn
-                variante="danger"
-                [loading]="sesionesService.cargando()"
-                (clicked)="terminarSesion()"
-              >
-                Terminar sesión
-              </app-btn>
-            </div>
-          </div>
-        </div>
-      }
+      </footer>
 
     </div>
+
+    <!-- ── Modal confirmación End Session ── -->
+    @if (mostrarConfirmacion()) {
+      <div
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-titulo"
+      >
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+          <h3 id="modal-titulo" class="text-base font-bold text-slate-800 mb-2">
+            ¿Finalizar la sesión?
+          </h3>
+          <p class="text-sm text-slate-600 mb-1">
+            {{ alumnosActivos() }} alumno(s) aún están respondiendo.
+          </p>
+          <p class="text-sm text-amber-600 mb-5">
+            Una vez finalizada, los alumnos no podrán seguir respondiendo y serán redirigidos a sus resultados.
+          </p>
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="mostrarConfirmacion.set(false)"
+              class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              (click)="finalizarSesion()"
+              [disabled]="finalizando()"
+              class="px-4 py-2 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 disabled:bg-slate-300 rounded-lg transition-colors flex items-center gap-2"
+            >
+              @if (finalizando()) {
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+              }
+              Sí, finalizar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ── Modal pantalla completa de alumno ── -->
+    @if (alumnoExpandido()) {
+      <div
+        class="fixed inset-0 bg-black/90 flex flex-col z-50"
+        role="dialog"
+        aria-modal="true"
+        (click)="cerrarPantallaCompleta()"
+      >
+        <!-- Header del modal -->
+        <div
+          class="flex items-center justify-between px-6 py-4 bg-black/50"
+          (click)="$event.stopPropagation()"
+        >
+          <div>
+            <p class="text-white font-semibold">{{ alumnoExpandido()!.alumno_nombre }}</p>
+            <p class="text-slate-400 text-xs">Vista expandida</p>
+          </div>
+          <button
+            type="button"
+            (click)="cerrarPantallaCompleta()"
+            class="p-2 text-white hover:text-slate-300 transition-colors"
+            aria-label="Cerrar vista expandida"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Video a pantalla completa -->
+        <div class="flex-1 flex items-center justify-center p-4">
+          @if (streamDeAlumno(alumnoExpandido()!.alumno_id)) {
+            <video
+              #videoExpandido
+              class="max-w-full max-h-full rounded-lg"
+              autoplay
+              muted
+              playsinline
+            ></video>
+          } @else {
+            <p class="text-slate-400 text-sm">Sin stream disponible</p>
+          }
+        </div>
+      </div>
+    }
   `,
 })
 export class MonitorComponent implements OnInit, OnDestroy {
+  // ── Dependencias ────────────────────────────────────────────────
+  readonly sesiones = inject(SesionesService);
+  readonly peer     = inject(PeerService);
+  private readonly route  = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  readonly sesionesService = inject(SesionesService);
-  private readonly peerService = inject(PeerService);
 
-  // ── Input de ruta ──────────────────────────────────────
+  // ── Estado ───────────────────────────────────────────────────────
 
-  /** UUID de la sesión a monitorear (viene de /docente/monitor/:sesionId) */
-  sesionId = input<string>();
+  /** Segundos restantes del examen para el navbar */
+  readonly segundosRestantes = signal(0);
+  private intervaloTimer: ReturnType<typeof setInterval> | null = null;
 
-  // ── Estado interno ─────────────────────────────────────
+  /** Modal de confirmación de finalizar */
+  readonly mostrarConfirmacion = signal(false);
 
-  /** Texto de búsqueda para filtrar alumnos */
-  busqueda = '';
+  /** true mientras se procesa la finalización */
+  readonly finalizando = signal(false);
 
-  /** Alumno cuya pantalla está expandida en modal */
-  alumnoExpandido = signal<SesionAlumnoConDatos | null>(null);
+  /** Alumno cuya pantalla se está viendo en modo fullscreen */
+  readonly alumnoExpandido = signal<SesionAlumnoConDatos | null>(null);
 
-  /** Controla la visibilidad del diálogo de confirmar terminar */
-  mostrarConfirmTerminar = signal(false);
+  // ── Computed ─────────────────────────────────────────────────────
 
-  // ── Computed ───────────────────────────────────────────
-
-  /** Alumnos filtrados por búsqueda */
-  alumnosFiltrados = computed(() => {
-    const q = this.busqueda.toLowerCase().trim();
-    if (!q) return this.sesionesService.alumnosConectados();
-    return this.sesionesService.alumnosConectados().filter((a) =>
-      a.alumno?.nombre_completo?.toLowerCase().includes(q)
-    );
-  });
-
-  /** Alumnos con stream activo */
-  alumnosActivos = computed(
-    () =>
-      this.sesionesService
-        .alumnosConectados()
-        .filter((a) => a.estado === 'en_progreso' && a.peer_id).length
+  /** Alumnos con stream activo (online) */
+  readonly alumnosConectados = computed(
+    () => this.peer.streamsPorAlumno().size
   );
 
-  /** Alumnos conectados pero sin actividad reciente */
-  alumnosIdle = computed(
-    () =>
-      this.sesionesService
-        .alumnosConectados()
-        .filter((a) => a.estado === 'unido' && a.peer_id).length
+  /** Alumnos que aún están 'en_progreso' (no han enviado ni son offline) */
+  readonly alumnosActivos = computed(
+    () => this.sesiones.alumnosEnSesion()
+      .filter((a) => a.estado === 'en_progreso').length
   );
 
-  /** Alumnos sin conectar */
-  alumnosOffline = computed(
-    () =>
-      this.sesionesService
-        .alumnosConectados()
-        .filter((a) => !a.peer_id).length
-  );
+  /** Cuenta de cada estado para la leyenda del footer */
+  conteoEstado(estado: 'activo' | 'idle' | 'flagged' | 'offline'): number {
+    return this.sesiones.alumnosEnSesion().filter((a) => {
+      const tieneStream = this.peer.streamsPorAlumno().has(a.alumno_id);
+      switch (estado) {
+        case 'activo':  return tieneStream && a.estado === 'en_progreso';
+        case 'offline': return !tieneStream && a.estado !== 'enviado';
+        case 'idle':    return false; // detección de idle requiere más lógica (extensión futura)
+        case 'flagged': return false; // detección de múltiples monitores (extensión futura)
+        default:        return false;
+      }
+    }).length;
+  }
 
-  // ── Lifecycle ──────────────────────────────────────────
+  // ── Ciclo de vida ─────────────────────────────────────────────
 
-  async ngOnInit() {
-    const id = this.sesionId();
-    if (!id) {
-      this.router.navigate(['/docente/grupos']);
+  async ngOnInit(): Promise<void> {
+    const sesionId = this.route.snapshot.paramMap.get('sesionId');
+    if (!sesionId) {
+      this.router.navigate(['/docente/examenes']);
       return;
     }
 
-    // Cargar sesión y suscribir Realtime
-    await this.sesionesService.cargarSesion(id);
+    // 1. Cargar datos de la sesión
+    const ok = await this.sesiones.cargarSesion(sesionId);
+    if (!ok) {
+      this.router.navigate(['/docente/examenes']);
+      return;
+    }
 
-    // Inicializar PeerJS como receptor de pantallas
-    try {
-      await this.peerService.inicializarComoReceptor(id);
-      this.peerService.escucharLlamadas();
-    } catch (err) {
-      console.error('[MonitorComponent] Error inicializando PeerJS:', err);
-      // No es fatal — el monitor sigue funcionando sin WebRTC
+    // 2. Inicializar PeerJS como receptor
+    await this.peer.inicializarComoReceptor(sesionId);
+
+    // 3. Arrancar Realtime de alumnos
+    await this.sesiones.iniciarMonitoreo(sesionId);
+
+    // 4. Iniciar temporizador
+    const duracionSeg = (this.sesiones.sesionActiva()?.duracion_min ?? 30) * 60;
+    this.segundosRestantes.set(duracionSeg);
+    this.iniciarTemporizador();
+  }
+
+  ngOnDestroy(): void {
+    // Limpiar temporizador y PeerJS al salir del monitor
+    if (this.intervaloTimer) clearInterval(this.intervaloTimer);
+    this.peer.destruir();
+    this.sesiones.destruir();
+  }
+
+  // ── Temporizador ──────────────────────────────────────────────
+
+  private iniciarTemporizador(): void {
+    this.intervaloTimer = setInterval(() => {
+      this.segundosRestantes.update((s) => Math.max(0, s - 1));
+    }, 1000);
+  }
+
+  // ── Handlers ─────────────────────────────────────────────────────
+
+  /** Devuelve el MediaStream de un alumno dado su alumno_id */
+  streamDeAlumno(alumnoId: string): MediaStream | null {
+    return this.peer.streamsPorAlumno().get(alumnoId)?.stream ?? null;
+  }
+
+  /** Muestra el modal de confirmación de finalizar sesión */
+  confirmarFinalizacion(): void {
+    this.mostrarConfirmacion.set(true);
+  }
+
+  /** Finaliza la sesión y navega a los resultados */
+  async finalizarSesion(): Promise<void> {
+    const sesionId = this.sesiones.sesionActiva()?.id;
+    if (!sesionId || this.finalizando()) return;
+
+    this.finalizando.set(true);
+
+    const ok = await this.sesiones.finalizarSesion(sesionId);
+
+    this.finalizando.set(false);
+    this.mostrarConfirmacion.set(false);
+
+    if (ok) {
+      // Detener temporizador antes de navegar
+      if (this.intervaloTimer) clearInterval(this.intervaloTimer);
+      this.router.navigate(['/docente/resultados', sesionId]);
     }
   }
 
-  ngOnDestroy() {
-    this.sesionesService.desuscribirRealtime();
-    // No destruir PeerService aquí porque es singleton (providedIn: 'root')
-    // Se destruye explícitamente al terminar la sesión
-  }
-
-  // ── Métodos ────────────────────────────────────────────
-
-  /**
-   * Obtiene el MediaStream de un alumno por su peer_id.
-   * Devuelve null si no hay stream disponible.
-   */
-  streamDeAlumno(peerId: string | null | undefined): MediaStream | null {
-    if (!peerId) return null;
-    return this.peerService.streams().get(peerId) ?? null;
-  }
-
-  /** Abre el modal de pantalla expandida */
-  abrirExpandido(alumno: SesionAlumnoConDatos) {
+  /** Abre la vista de pantalla completa de un alumno */
+  abrirPantallaCompleta(alumno: SesionAlumnoConDatos): void {
     this.alumnoExpandido.set(alumno);
   }
 
-  /** Muestra el diálogo de confirmación para terminar la sesión */
-  confirmarTerminar() {
-    this.mostrarConfirmTerminar.set(true);
+  /** Cierra la vista de pantalla completa */
+  cerrarPantallaCompleta(): void {
+    this.alumnoExpandido.set(null);
   }
 
-  /** Termina la sesión y navega a resultados */
-  async terminarSesion() {
-    const id = this.sesionId();
-    if (!id) return;
-
-    const { error } = await this.sesionesService.terminarSesion(id);
-    if (!error) {
-      this.peerService.destruir();
-      this.router.navigate(['/docente/resultados', id]);
-    }
-    this.mostrarConfirmTerminar.set(false);
+  /**
+   * Recarga manualmente la lista de alumnos.
+   * Útil si el Realtime falla temporalmente.
+   */
+  sincronizarManual(): void {
+    const sesionId = this.sesiones.sesionActiva()?.id;
+    if (sesionId) this.sesiones.iniciarMonitoreo(sesionId);
   }
 
-  /** Recarga manualmente el estado de alumnos */
-  async sincronizar() {
-    const id = this.sesionId();
-    if (id) await this.sesionesService.cargarSesion(id);
+  /**
+   * Envía un recordatorio visual al alumno (extensión futura).
+   * Por ahora loggea; en producción podría usar Supabase Realtime
+   * para enviar una notificación al alumno.
+   */
+  enviarRecordatorio(alumno: SesionAlumnoConDatos): void {
+    console.log('[Monitor] Enviar recordatorio a:', alumno.alumno_nombre);
+    // TODO: implementar via Supabase broadcast channel
   }
 }

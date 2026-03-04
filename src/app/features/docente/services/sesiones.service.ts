@@ -1,273 +1,337 @@
-// =============================================================
-// features/docente/services/sesiones.service.ts
-//
-// Servicio del módulo docente que gestiona las sesiones de examen.
-//
-// Responsabilidades:
-//   - Crear una sesión (genera código de acceso único)
-//   - Terminar una sesión (cambia estado a 'finalizada')
-//   - Suscribirse a cambios en tiempo real de sesion_alumnos
-//     via Supabase Realtime (canal Postgres Changes)
-//   - Exponer el estado de alumnos conectados como signal
-//
-// Código de acceso:
-//   Se genera en el cliente como 6 caracteres alfanuméricos en mayúsculas.
-//   Ej: "AB12CD". El índice único en BD garantiza que no haya duplicados.
-//   Si hay colisión, se reintenta una vez.
-//
-// Realtime:
-//   Supabase Realtime escucha INSERT y UPDATE en sesion_alumnos
-//   para el sesion_id activo. Actualiza el signal alumnosConectados
-//   que MonitorComponent consume directamente.
-// =============================================================
+/**
+ * sesiones.service.ts
+ * ─────────────────────────────────────────────────────────────────
+ * Servicio del módulo Docente para gestionar el ciclo de vida
+ * completo de una sesión de examen.
+ *
+ * RESPONSABILIDADES:
+ *  - Crear una sesión en Supabase y generar el código de acceso
+ *  - Suscribirse a Supabase Realtime para ver en tiempo real
+ *    cuáles alumnos se conectan y en qué estado están
+ *  - Finalizar la sesión (cambia estado a 'finalizada')
+ *
+ * SUPABASE REALTIME:
+ *  Escucha cambios en la tabla sesion_alumnos filtrada por sesion_id.
+ *  Cada INSERT (alumno se une) o UPDATE (alumno envía examen) dispara
+ *  una actualización en el signal `alumnosEnSesion`.
+ *
+ * ARQUITECTURA:
+ *  - NO providedIn:'root'. Se provee en MonitorComponent.
+ *  - Solo lo usa el módulo docente.
+ *  - El código de acceso se genera en el cliente como 6 caracteres
+ *    alfanuméricos mayúsculos para ser fáciles de dictar en clase.
+ * ─────────────────────────────────────────────────────────────────
+ */
 
-import { Injectable, inject, signal, OnDestroy } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { AuthService } from '../../../core/services/auth.service';
-import {
-  Sesion,
-  SesionAlumnoConDatos,
-} from '../../../shared/models';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import { SesionAlumnoConDatos } from '../../../shared/models/index';
 
-interface ServiceResult<T = void> {
-  data: T | null;
-  error: string | null;
+/** Info básica de la sesión activa para el monitor */
+export interface SesionActiva {
+  id: string;
+  codigo_acceso: string;
+  examen_titulo: string;
+  grupo_nombre: string;
+  duracion_min: number;
+  iniciada_en: string;
 }
 
 @Injectable()
-export class SesionesService implements OnDestroy {
-  private readonly supabase = inject(SupabaseService).client;
-  private readonly auth = inject(AuthService);
+export class SesionesService {
+  // ── Dependencias ────────────────────────────────────────────────
+  private readonly supabase = inject(SupabaseService);
+  private readonly auth     = inject(AuthService);
 
-  // ── Estado reactivo ────────────────────────────────────
+  // ── Estado con signals ───────────────────────────────────────────
 
-  /** Sesión activa actualmente siendo monitoreada */
-  readonly sesionActiva = signal<Sesion | null>(null);
-
-  /** Lista de alumnos conectados a la sesión activa con sus datos */
-  readonly alumnosConectados = signal<SesionAlumnoConDatos[]>([]);
-
-  /** Indica si hay una operación en progreso */
-  readonly cargando = signal(false);
-
-  /** Error del servicio */
-  readonly error = signal<string | null>(null);
-
-  /** Canal de Supabase Realtime activo (null si no hay suscripción) */
-  private _canalRealtime: RealtimeChannel | null = null;
-
-  // ── Métodos públicos ───────────────────────────────────
+  /** Datos de la sesión que está activa en el monitor */
+  readonly sesionActiva = signal<SesionActiva | null>(null);
 
   /**
-   * Crea una nueva sesión de examen con un código de acceso único.
-   *
-   * Flujo:
-   *   1. Generar código aleatorio de 6 caracteres
-   *   2. Insertar sesión en BD
-   *   3. Si hay conflicto de código (UNIQUE), reintentar una vez
-   *
-   * @param examenId - UUID del examen a activar
-   * @param grupoId  - UUID del grupo que realizará el examen (informativo)
+   * Lista reactiva de alumnos en la sesión.
+   * Se actualiza en tiempo real via Supabase Realtime.
    */
-  async crearSesion(
-    examenId: string,
-    _grupoId: string
-  ): Promise<ServiceResult<Sesion>> {
+  readonly alumnosEnSesion = signal<SesionAlumnoConDatos[]>([]);
+
+  readonly cargando = signal(false);
+  readonly error    = signal<string | null>(null);
+
+  /** Referencia al canal de Realtime para poder desuscribirse */
+  private realtimeChannel: ReturnType<
+    typeof this.supabase.client.channel
+  > | null = null;
+
+  // ── Métodos públicos ────────────────────────────────────────────
+
+  /**
+   * Crea una nueva sesión en Supabase para el examen/grupo dados.
+   * Genera un código de acceso único de 6 caracteres.
+   *
+   * @param examenId UUID del examen a iniciar
+   * @param grupoId  UUID del grupo que presentará el examen
+   * @returns UUID de la sesión creada, o null si falló
+   */
+  async crearSesion(examenId: string, grupoId: string): Promise<string | null> {
     this.cargando.set(true);
     this.error.set(null);
 
-    try {
-      const maestroId = this.auth.currentUser()?.id;
-      if (!maestroId) throw new Error('No hay sesión activa.');
-
-      // Intentar crear con un código único (máx 2 intentos)
-      let sesion: Sesion | null = null;
-      let intentos = 0;
-
-      while (!sesion && intentos < 2) {
-        const codigo = this._generarCodigo();
-        const { data, error } = await this.supabase
-          .from('sesiones')
-          .insert({
-            examen_id: examenId,
-            maestro_id: maestroId,
-            codigo_acceso: codigo,
-            estado: 'esperando',
-            iniciada_en: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (error) {
-          // Código duplicado → reintentar
-          if (error.code === '23505') {
-            intentos++;
-            continue;
-          }
-          throw error;
-        }
-        sesion = data;
-      }
-
-      if (!sesion) throw new Error('No se pudo generar un código único.');
-
-      this.sesionActiva.set(sesion);
-      return { data: sesion, error: null };
-    } catch (err: any) {
-      const msg = 'Error al crear la sesión de examen.';
-      this.error.set(msg);
-      console.error('[SesionesService.crearSesion]', err);
-      return { data: null, error: msg };
-    } finally {
+    const maestroId = this.auth.currentUser()?.id;
+    if (!maestroId) {
+      this.error.set('No hay sesión activa de docente.');
       this.cargando.set(false);
+      return null;
     }
+
+    // Generar código único de 6 caracteres
+    const codigoAcceso = await this.generarCodigoUnico();
+
+    // Insertar la sesión en DB con estado inicial 'activa'
+    const { data, error } = await this.supabase.client
+      .from('sesiones')
+      .insert({
+        examen_id:     examenId,
+        maestro_id:    maestroId,
+        codigo_acceso: codigoAcceso,
+        estado:        'activa',
+        iniciada_en:   new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (error || !data) {
+      this.error.set('No se pudo crear la sesión. Intenta de nuevo.');
+      console.error('[SesionesService] crearSesion:', error);
+      this.cargando.set(false);
+      return null;
+    }
+
+    this.cargando.set(false);
+    return data.id;
   }
 
   /**
-   * Carga una sesión existente por ID (para cuando el maestro recarga la página).
-   * También carga el estado inicial de los alumnos conectados.
+   * Carga los datos completos de una sesión existente.
+   * Útil cuando el docente navega directamente al monitor por URL.
    *
-   * @param sesionId - UUID de la sesión a cargar
+   * @param sesionId UUID de la sesión a cargar
    */
-  async cargarSesion(sesionId: string): Promise<void> {
+  async cargarSesion(sesionId: string): Promise<boolean> {
+    this.cargando.set(true);
+    this.error.set(null);
+
+    const { data, error } = await this.supabase.client
+      .from('sesiones')
+      .select(`
+        id,
+        codigo_acceso,
+        iniciada_en,
+        examenes (
+          titulo,
+          duracion_min,
+          grupos ( nombre )
+        )
+      `)
+      .eq('id', sesionId)
+      .single();
+
+    if (error || !data) {
+      this.error.set('No se encontró la sesión especificada.');
+      this.cargando.set(false);
+      return false;
+    }
+
+    const examen = (data as any).examenes;
+
+    this.sesionActiva.set({
+      id:            data.id,
+      codigo_acceso: data.codigo_acceso,
+      examen_titulo: examen?.titulo ?? '—',
+      grupo_nombre:  examen?.grupos?.nombre ?? '—',
+      duracion_min:  examen?.duracion_min ?? 30,
+      iniciada_en:   data.iniciada_en ?? new Date().toISOString(),
+    });
+
+    this.cargando.set(false);
+    return true;
+  }
+
+  /**
+   * Carga la lista inicial de alumnos del grupo de la sesión
+   * y luego activa la suscripción de Realtime para actualizaciones en vivo.
+   *
+   * @param sesionId UUID de la sesión activa
+   */
+  async iniciarMonitoreo(sesionId: string): Promise<void> {
+    // 1. Carga inicial de alumnos ya unidos
+    await this.cargarAlumnosIniciales(sesionId);
+
+    // 2. Suscripción Realtime a cambios en sesion_alumnos
+    this.suscribirseARealtime(sesionId);
+  }
+
+  /**
+   * Finaliza la sesión: cambia estado a 'finalizada' en Supabase
+   * y cancela la suscripción de Realtime.
+   *
+   * @param sesionId UUID de la sesión a finalizar
+   */
+  async finalizarSesion(sesionId: string): Promise<boolean> {
     this.cargando.set(true);
 
-    try {
-      // Cargar datos de la sesión
-      const { data: sesion, error: errSesion } = await this.supabase
-        .from('sesiones')
-        .select('*')
-        .eq('id', sesionId)
-        .single();
+    const { error } = await this.supabase.client
+      .from('sesiones')
+      .update({
+        estado:        'finalizada',
+        finalizada_en: new Date().toISOString(),
+      })
+      .eq('id', sesionId);
 
-      if (errSesion) throw errSesion;
-      this.sesionActiva.set(sesion);
+    this.cargando.set(false);
 
-      // Cargar alumnos conectados con JOIN de nombre
-      await this._cargarAlumnos(sesionId);
-
-      // Iniciar suscripción Realtime
-      this.suscribirRealtime(sesionId);
-    } catch (err: any) {
-      this.error.set('No se pudo cargar la sesión.');
-      console.error('[SesionesService.cargarSesion]', err);
-    } finally {
-      this.cargando.set(false);
+    if (error) {
+      this.error.set('No se pudo finalizar la sesión.');
+      console.error('[SesionesService] finalizarSesion:', error);
+      return false;
     }
+
+    // Cancelar Realtime al finalizar
+    this.desuscribirseDeRealtime();
+    return true;
   }
 
   /**
-   * Cambia el estado de la sesión a 'finalizada' y guarda la hora de fin.
-   * También desuscribe el canal Realtime.
-   *
-   * @param sesionId - UUID de la sesión a terminar
+   * Cancela la suscripción de Realtime y limpia el estado.
+   * Llamar en ngOnDestroy del MonitorComponent.
    */
-  async terminarSesion(sesionId: string): Promise<ServiceResult> {
-    this.cargando.set(true);
+  destruir(): void {
+    this.desuscribirseDeRealtime();
+    this.sesionActiva.set(null);
+    this.alumnosEnSesion.set([]);
+    this.error.set(null);
+  }
 
-    try {
-      const { error } = await this.supabase
-        .from('sesiones')
-        .update({
-          estado: 'finalizada',
-          finalizada_en: new Date().toISOString(),
-        })
-        .eq('id', sesionId);
+  // ── Métodos privados ────────────────────────────────────────────
 
-      if (error) throw error;
+  /**
+   * Carga todos los registros de sesion_alumnos para la sesión dada,
+   * incluyendo el nombre del alumno desde la tabla alumnos.
+   */
+  private async cargarAlumnosIniciales(sesionId: string): Promise<void> {
+    const { data, error } = await this.supabase.client
+      .from('sesion_alumnos')
+      .select(`
+        id,
+        alumno_id,
+        peer_id,
+        estado,
+        iniciado_en,
+        enviado_en,
+        tiempo_usado_min,
+        porcentaje,
+        total_correctas,
+        total_incorrectas,
+        alumnos ( nombre_completo )
+      `)
+      .eq('sesion_id', sesionId)
+      .order('alumnos(nombre_completo)', { ascending: true });
 
-      this.desuscribirRealtime();
-      this.sesionActiva.update((s) =>
-        s ? { ...s, estado: 'finalizada' } : null
-      );
-
-      return { data: null, error: null };
-    } catch (err: any) {
-      const msg = 'No se pudo terminar la sesión.';
-      console.error('[SesionesService.terminarSesion]', err);
-      return { data: null, error: msg };
-    } finally {
-      this.cargando.set(false);
+    if (error) {
+      console.error('[SesionesService] cargarAlumnosIniciales:', error);
+      return;
     }
+
+    const enriquecidos = this.enriquecerAlumnos(data ?? []);
+    this.alumnosEnSesion.set(enriquecidos);
   }
 
   /**
-   * Suscribe el canal Realtime de Supabase para escuchar cambios
-   * en sesion_alumnos (INSERT de nuevos alumnos, UPDATE de estado).
-   * Actualiza automáticamente el signal alumnosConectados.
+   * Activa un canal de Supabase Realtime que escucha INSERT y UPDATE
+   * en la tabla sesion_alumnos filtrado por sesion_id.
    *
-   * @param sesionId - UUID de la sesión a monitorear
+   * Cuando llega un evento:
+   *  - INSERT: agrega el alumno nuevo al signal
+   *  - UPDATE: actualiza el registro existente (estado, porcentaje, etc.)
    */
-  suscribirRealtime(sesionId: string): void {
-    // Evitar múltiples suscripciones
-    this.desuscribirRealtime();
+  private suscribirseARealtime(sesionId: string): void {
+    // Cancelar canal previo si existe
+    this.desuscribirseDeRealtime();
 
-    this._canalRealtime = this.supabase
-      .channel(`sesion-monitor-${sesionId}`)
+    this.realtimeChannel = this.supabase.client
+      .channel(`sesion-${sesionId}`)
       .on(
         'postgres_changes',
         {
-          event: '*', // INSERT, UPDATE, DELETE
+          event:  '*',            // INSERT y UPDATE
           schema: 'public',
-          table: 'sesion_alumnos',
+          table:  'sesion_alumnos',
           filter: `sesion_id=eq.${sesionId}`,
         },
-        async (_payload) => {
-          // Al recibir cualquier cambio, recargar la lista completa
-          // para tener el JOIN con el nombre del alumno actualizado
-          await this._cargarAlumnos(sesionId);
+        async (payload) => {
+          // Recargar la lista completa en cada cambio para tener datos frescos
+          // (más simple que hacer merge manual del payload)
+          await this.cargarAlumnosIniciales(sesionId);
+          console.log('[SesionesService] Realtime evento:', payload.eventType);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[SesionesService] Realtime activo para sesión: ${sesionId}`);
+        }
+      });
   }
 
-  /** Cancela la suscripción Realtime activa */
-  desuscribirRealtime(): void {
-    if (this._canalRealtime) {
-      this.supabase.removeChannel(this._canalRealtime);
-      this._canalRealtime = null;
-    }
-  }
-
-  // ── Lifecycle ──────────────────────────────────────────
-
-  /** Limpia la suscripción Realtime al destruir el servicio */
-  ngOnDestroy(): void {
-    this.desuscribirRealtime();
-  }
-
-  // ── Métodos privados ───────────────────────────────────
-
-  /**
-   * Carga los alumnos conectados a una sesión con JOIN del nombre.
-   * Se llama al iniciar y cada vez que Realtime notifica un cambio.
-   */
-  private async _cargarAlumnos(sesionId: string): Promise<void> {
-    const { data, error } = await this.supabase
-      .from('sesion_alumnos')
-      .select(`
-        *,
-        alumno:alumnos ( nombre_completo )
-      `)
-      .eq('sesion_id', sesionId)
-      .order('creado_en', { ascending: true });
-
-    if (!error) {
-      this.alumnosConectados.set(data ?? []);
+  /** Cancela el canal de Realtime activo */
+  private desuscribirseDeRealtime(): void {
+    if (this.realtimeChannel) {
+      this.supabase.client.removeChannel(this.realtimeChannel);
+      this.realtimeChannel = null;
     }
   }
 
   /**
-   * Genera un código de acceso de 6 caracteres alfanuméricos en mayúsculas.
-   * Excluye caracteres ambiguos: O, 0, I, 1 para evitar confusiones.
-   * Ej: "AB7C2D"
+   * Genera un código de acceso único de 6 caracteres alfanuméricos.
+   * Verifica que no exista ya en la tabla sesiones.
+   *
+   * Formato: "XXXXXX" (letras mayúsculas + números, sin caracteres confusos)
+   * Ejemplo: "K7M2PQ"
    */
-  private _generarCodigo(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    return Array.from(
-      { length: 6 },
-      () => chars[Math.floor(Math.random() * chars.length)]
-    ).join('');
+  private async generarCodigoUnico(): Promise<string> {
+    // Caracteres sin ambigüedad (sin 0/O ni 1/I/L)
+    const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+    const generarCodigo = () =>
+      Array.from({ length: 6 }, () =>
+        CHARS[Math.floor(Math.random() * CHARS.length)]
+      ).join('');
+
+    // Reintentar hasta encontrar un código no usado
+    for (let intento = 0; intento < 10; intento++) {
+      const codigo = generarCodigo();
+
+      const { data } = await this.supabase.client
+        .from('sesiones')
+        .select('id')
+        .eq('codigo_acceso', codigo)
+        .maybeSingle();
+
+      // Si no existe, usar este código
+      if (!data) return codigo;
+    }
+
+    // Fallback: código con timestamp para garantizar unicidad
+    return generarCodigo() + Date.now().toString(36).slice(-2).toUpperCase();
+  }
+
+  /**
+   * Aplana el join de alumnos en el array de sesion_alumnos
+   * para exponer alumno_nombre directamente en cada fila.
+   */
+  private enriquecerAlumnos(data: any[]): SesionAlumnoConDatos[] {
+    return data.map((sa) => ({
+      ...sa,
+      alumno_nombre: sa.alumnos?.nombre_completo ?? '—',
+    }));
   }
 }
