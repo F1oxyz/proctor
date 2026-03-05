@@ -12,10 +12,7 @@ import { FormsModule } from '@angular/forms';
       <!-- Ícono + Título -->
       <div class="flex flex-col items-center text-center gap-3">
         <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
-          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M12 14l9-5-9-5-9 5 9 5zm0 0v6m0-6l-3.5-1.944M12 20l-9-5" />
-          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#0065e0"><path d="M480-120 200-272v-240L40-600l440-240 440 240v320h-80v-276l-80 44v240L480-120Zm0-332 274-148-274-148-274 148 274 148Zm0 241 200-108v-151L480-360 280-470v151l200 108Zm0-241Zm0 90Zm0 0Z"/></svg>
         </div>
         <div>
           <h2 class="text-lg font-semibold text-slate-800">Estudiantes</h2>
@@ -40,7 +37,7 @@ import { FormsModule } from '@angular/forms';
               type="text"
               [(ngModel)]="codigoInput"
               (keyup.enter)="entrar()"
-              placeholder="EJ: MATH-101"
+              placeholder="EJ: XYZ763"
               class="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg
                      text-slate-800 placeholder-slate-400 bg-white
                      focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
@@ -68,14 +65,6 @@ import { FormsModule } from '@angular/forms';
           Entrar al Examen
         </button>
       </div>
-
-      <!-- Info de soporte -->
-      <p class="text-xs text-slate-400 text-center flex items-center justify-center gap-1">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/>
-        </svg>
-        ¿Problemas con tu código? Contacta a soporte.
-      </p>
 
     </div>
   `
