@@ -297,16 +297,23 @@ export class ExamenComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const sesion = this.servicio.sesion();
 
-    // Si no hay sesión (acceso directo sin pasar por sala de espera)
-    // redirigir al inicio
     if (!sesion || !this.servicio.sesionAlumnoId()) {
       const codigo = this.route.snapshot.paramMap.get('codigo');
       this.router.navigate(['/examen', codigo]);
       return;
     }
 
-    // Iniciar temporizador
-    this.segundosRestantes.set(sesion.duracion_min * 60);
+    // Bug 4: calcular segundos restantes descontando el tiempo ya transcurrido
+    const totalSeg = sesion.duracion_min * 60;
+    if (sesion.iniciada_en) {
+      const ahora       = Date.now();
+      const iniciadaMs  = new Date(sesion.iniciada_en).getTime();
+      const transcurridos = Math.floor((ahora - iniciadaMs) / 1000);
+      this.segundosRestantes.set(Math.max(0, totalSeg - transcurridos));
+    } else {
+      this.segundosRestantes.set(totalSeg);
+    }
+
     this.iniciarTemporizador();
   }
 
@@ -381,13 +388,17 @@ export class ExamenComponent implements OnInit, OnDestroy {
     this.detenerTemporizador();
     this.enviando.set(true);
 
-    const resultado = await this.servicio.enviarExamen(this.segundosRestantes());
+    await this.servicio.enviarExamen(this.segundosRestantes());
 
     this.enviando.set(false);
 
-    if (resultado) {
-      const codigo = this.route.snapshot.paramMap.get('codigo');
-      this.router.navigate(['/examen', codigo, 'resultado']);
-    }
+    // `:codigo` está en el PARENT route (/examen/:codigo), no en la ruta actual
+    // (/examen/:codigo/evaluacion). Usamos el código del servicio como fuente
+    // principal y el paramMap del padre como fallback.
+    const codigo =
+      this.servicio.sesion()?.codigo_acceso
+      ?? this.route.parent?.snapshot.paramMap.get('codigo');
+
+    this.router.navigate(['/examen', codigo, 'resultado']);
   }
 }

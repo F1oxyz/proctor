@@ -1,10 +1,9 @@
 /**
- * examenes.component.ts  ← VERSIÓN FINAL (Paso 5 integrado)
+ * examenes.component.ts
  * ─────────────────────────────────────────────────────────────────
- * CAMBIOS RESPECTO AL PASO 4:
- *  - Inyecta SesionesService
- *  - onIniciarExamen() llama a sesionesService.crearSesion() de verdad
- *  - Navega a /docente/monitor/:sesionId
+ * BUGS CORREGIDOS:
+ *  - Bug 4: eliminar examen ahora muestra error si falla
+ *  - Bug 6: sección "Historial de Sesiones" para ver resultados pasados
  * ─────────────────────────────────────────────────────────────────
  */
 
@@ -16,10 +15,11 @@ import {
   OnInit,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { DatePipe } from '@angular/common';
 
-import { ExamenesService }  from '../../services/examenes.service';
+import { ExamenesService, SesionResumen }  from '../../services/examenes.service';
 import { GruposService }    from '../../services/grupos.service';
-import { SesionesService }  from '../../services/sesiones.service'; // ← NUEVO
+import { SesionesService }  from '../../services/sesiones.service';
 import {
   NavbarComponent,
 } from '../../../../shared/components/navbar/navbar.component';
@@ -31,7 +31,6 @@ import {
 } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { ModalIniciarExamenComponent } from './components/modal-iniciar-examen/modal-iniciar-examen.component';
 import { ExamenConGrupo, IniciarExamenPayload } from '../../services/examenes.service';
-import { DatePipe } from '@angular/common';
 
 @Component({
   selector: 'app-examenes',
@@ -44,7 +43,7 @@ import { DatePipe } from '@angular/common';
     LoadingSpinnerComponent,
     ModalIniciarExamenComponent,
   ],
-  providers: [ExamenesService, GruposService, SesionesService], // ← SesionesService agregado
+  providers: [ExamenesService, GruposService, SesionesService],
   template: `
     <app-navbar modo="default" />
 
@@ -67,32 +66,40 @@ import { DatePipe } from '@angular/common';
         </a>
       </div>
 
+      <!-- Error global (Bug 4: se muestra sobre la tabla también) -->
+      @if (servicio.error()) {
+        <div class="mb-4 flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {{ servicio.error() }}
+          <button type="button" (click)="servicio.error.set(null)" class="ml-auto text-red-500 hover:text-red-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      }
+
       <!-- Loading -->
-      @if (servicio.cargando()) {
+      @if (servicio.cargando() && servicio.examenes().length === 0) {
         <div class="flex justify-center py-20">
           <app-loading-spinner />
         </div>
       }
 
-      <!-- Error -->
-      @else if (servicio.error()) {
-        <div class="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-          {{ servicio.error() }}
-        </div>
-      }
-
       <!-- Lista vacía -->
-      @else if (servicio.examenes().length === 0) {
+      @else if (!servicio.cargando() && servicio.examenes().length === 0) {
         <app-empty-state
           icono="examenes"
           titulo="Sin exámenes creados"
-          descripcion="Crea tu primer examen para comenzar a evaluar a tus alumnos."
+          mensaje="Crea tu primer examen para comenzar a evaluar a tus alumnos."
         />
       }
 
       <!-- Tabla de exámenes -->
       @else {
-        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden mb-8">
           <table class="w-full text-sm" role="table">
             <thead>
               <tr class="border-b border-slate-200 bg-slate-50">
@@ -131,7 +138,7 @@ import { DatePipe } from '@angular/common';
                         type="button"
                         (click)="abrirModalIniciar(examen)"
                         class="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        aria-label="Iniciar examen"
+                        aria-label="Iniciar sesión de examen"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -160,6 +167,87 @@ import { DatePipe } from '@angular/common';
         </div>
       }
 
+      <!-- ── Bug 6: Historial de Sesiones ── -->
+      @if (sesionesRecientes().length > 0) {
+        <section>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-bold text-slate-800">Historial de Sesiones</h2>
+            <span class="text-xs text-slate-400">Últimas {{ sesionesRecientes().length }} sesiones</span>
+          </div>
+
+          <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <table class="w-full text-sm" role="table">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50">
+                  <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Examen</th>
+                  <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Código</th>
+                  <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
+                  <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Fecha</th>
+                  <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Acción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                @for (sesion of sesionesRecientes(); track sesion.id) {
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-4 py-3 font-medium text-slate-800">{{ sesion.examen_titulo }}</td>
+                    <td class="px-4 py-3">
+                      <span class="font-mono text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded tracking-widest">
+                        {{ sesion.codigo_acceso }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      @if (sesion.estado === 'finalizada') {
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+                          <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                          Finalizada
+                        </span>
+                      } @else if (sesion.estado === 'activa') {
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-green-600">
+                          <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                          En curso
+                        </span>
+                      } @else {
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
+                          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                          En espera
+                        </span>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-center text-slate-400 text-xs">
+                      {{ sesion.iniciada_en | date:'dd/MM/yy HH:mm' }}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      @if (sesion.estado === 'finalizada') {
+                        <a
+                          [routerLink]="['/docente/resultados', sesion.id]"
+                          class="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          Ver resultados
+                        </a>
+                      } @else if (sesion.estado !== 'esperando') {
+                        <a
+                          [routerLink]="['/docente/monitor', sesion.id]"
+                          class="text-xs font-semibold text-green-600 hover:text-green-700 hover:underline"
+                        >
+                          Ir al monitor
+                        </a>
+                      } @else {
+                        <a
+                          [routerLink]="['/docente/monitor', sesion.id]"
+                          class="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline"
+                        >
+                          Ir al monitor
+                        </a>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+
     </main>
 
     <!-- Modal Iniciar Examen -->
@@ -178,14 +266,23 @@ import { DatePipe } from '@angular/common';
       <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
           <h3 class="text-base font-bold text-slate-800 mb-2">¿Eliminar examen?</h3>
-          <p class="text-sm text-slate-600 mb-5">
-            "{{ examenParaEliminar()!.titulo }}" se eliminará permanentemente junto con todas sus preguntas.
+          <p class="text-sm text-slate-600 mb-1">
+            "{{ examenParaEliminar()!.titulo }}" se eliminará permanentemente junto con todas sus preguntas
+            y el historial de sesiones.
           </p>
+          <p class="text-xs text-amber-600 mb-5">Esta acción no se puede deshacer.</p>
           <div class="flex justify-end gap-3">
             <button type="button" (click)="examenParaEliminar.set(null)"
               class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800">Cancelar</button>
             <button type="button" (click)="eliminarExamen()"
-              class="px-4 py-2 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg">
+              [disabled]="servicio.cargando()"
+              class="px-4 py-2 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 disabled:bg-slate-300 rounded-lg flex items-center gap-2">
+              @if (servicio.cargando()) {
+                <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+              }
               Eliminar
             </button>
           </div>
@@ -198,13 +295,16 @@ export class ExamenesComponent implements OnInit {
   // ── Dependencias ────────────────────────────────────────────────
   readonly servicio       = inject(ExamenesService);
   readonly gruposService  = inject(GruposService);
-  private readonly sesionesService = inject(SesionesService); // ← NUEVO
+  private readonly sesionesService = inject(SesionesService);
   private readonly router = inject(Router);
 
   // ── Estado ───────────────────────────────────────────────────────
   readonly examenParaIniciar  = signal<ExamenConGrupo | null>(null);
   readonly examenParaEliminar = signal<ExamenConGrupo | null>(null);
   readonly iniciandoExamen    = signal(false);
+
+  /** Bug 6: historial de sesiones */
+  readonly sesionesRecientes  = signal<SesionResumen[]>([]);
 
   // ── Ciclo de vida ─────────────────────────────────────────────
 
@@ -213,6 +313,10 @@ export class ExamenesComponent implements OnInit {
       this.servicio.cargarExamenes(),
       this.gruposService.cargarGrupos(),
     ]);
+
+    // Bug 6: cargar historial de sesiones
+    const sesiones = await this.servicio.cargarSesionesRecientes();
+    this.sesionesRecientes.set(sesiones);
   }
 
   // ── Handlers ─────────────────────────────────────────────────────
@@ -232,26 +336,26 @@ export class ExamenesComponent implements OnInit {
   async eliminarExamen(): Promise<void> {
     const examen = this.examenParaEliminar();
     if (!examen) return;
-    await this.servicio.eliminarExamen(examen.id);
+    const result = await this.servicio.eliminarExamen(examen.id);
     this.examenParaEliminar.set(null);
+    // Bug 4: si hay error, servicio.error() lo mostrará en el banner global
+    if (!result.error) {
+      // Refrescar historial de sesiones tras eliminar
+      const sesiones = await this.servicio.cargarSesionesRecientes();
+      this.sesionesRecientes.set(sesiones);
+    }
   }
 
-  /** Cierra modal y limpia estado al recibir evento (cerrar) del modal */
   onCerrarModal(): void {
     this.examenParaIniciar.set(null);
     this.iniciandoExamen.set(false);
   }
 
-  /**
-   * Crea la sesión en Supabase y navega al monitor.
-   * Reemplaza el placeholder del Paso 4.
-   */
   async onIniciarExamen(payload: IniciarExamenPayload): Promise<void> {
     if (this.iniciandoExamen()) return;
 
     this.iniciandoExamen.set(true);
 
-    // ── INTEGRACIÓN PASO 5: llamada real a SesionesService ──────
     const sesionId = await this.sesionesService.crearSesion(
       payload.examenId,
       payload.grupoId
@@ -260,14 +364,11 @@ export class ExamenesComponent implements OnInit {
     this.iniciandoExamen.set(false);
 
     if (!sesionId) {
-      // El error ya está en sesionesService.error()
       console.error('[ExamenesComponent] No se pudo crear la sesión.');
       return;
     }
 
     this.cerrarModalIniciar();
-
-    // Navegar al monitor con el UUID de la sesión recién creada
     this.router.navigate(['/docente/monitor', sesionId]);
   }
 }

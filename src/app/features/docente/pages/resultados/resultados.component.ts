@@ -14,6 +14,13 @@
  * DATOS:
  *  Carga de Supabase: sesion → examenes → sesion_alumnos + alumnos
  *
+ * CAMBIOS:
+ *  - Bug 5: clic en fila abre panel lateral con respuestas del alumno.
+ *           Las preguntas abiertas (texto_abierto) permiten que el docente
+ *           marque manualmente Correcto / Incorrecto. Al calificar se
+ *           recalculan porcentaje, total_correctas e total_incorrectas
+ *           en sesion_alumnos y se refleja en la tabla.
+ *
  * ARQUITECTURA:
  *  - No provee ExamenesService (datos propios de sesión/resultados)
  *  - Carga directa a Supabase via SupabaseService
@@ -47,6 +54,17 @@ interface SesionInfo {
   iniciada_en: string | null;
   duracion_min: number;
   codigo_acceso: string;
+}
+
+/** Bug 5: Respuesta del alumno enriquecida con datos de la pregunta */
+interface RespuestaConDatos {
+  id: string;
+  es_correcta: boolean | null;
+  respuesta_abierta: string | null;
+  opcion_id: string | null;
+  pregunta_texto: string;
+  tipo: 'opcion_multiple' | 'texto_abierto';
+  opcion_texto: string | null;  // texto de la opción seleccionada
 }
 
 @Component({
@@ -176,6 +194,11 @@ interface SesionInfo {
         } @else {
           <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
 
+            <!-- Bug 5: hint de que las filas son clicables -->
+            <p class="text-xs text-slate-400 px-4 pt-3 pb-1">
+              Haz clic en una fila para ver las respuestas del alumno.
+            </p>
+
             <div class="overflow-x-auto">
               <table
                 class="w-full text-sm"
@@ -213,10 +236,13 @@ interface SesionInfo {
 
                 <tbody class="divide-y divide-slate-100">
                   @for (fila of filas(); track fila.id) {
+                    <!-- Bug 5: clic en la fila abre el panel de respuestas -->
                     <tr
                       app-fila-resultado
                       [fila]="fila"
-                      class="hover:bg-slate-50 transition-colors"
+                      class="hover:bg-blue-50 transition-colors cursor-pointer"
+                      [class.bg-blue-50]="alumnoSeleccionado()?.id === fila.id"
+                      (click)="abrirRespuestasAlumno(fila)"
                     ></tr>
                   }
                 </tbody>
@@ -230,6 +256,196 @@ interface SesionInfo {
       }
 
     </main>
+
+    <!-- ── Bug 5: Panel lateral de respuestas del alumno ── -->
+    @if (panelAbierto()) {
+      <!-- Backdrop -->
+      <div
+        class="fixed inset-0 bg-black/30 z-40"
+        (click)="cerrarPanel()"
+      ></div>
+
+      <!-- Panel -->
+      <aside
+        class="fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="panel-titulo"
+      >
+        <!-- Cabecera del panel -->
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+          <div>
+            <h2 id="panel-titulo" class="text-base font-bold text-slate-800">
+              {{ alumnoSeleccionado()?.alumno_nombre ?? 'Respuestas' }}
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Revisión de respuestas individuales
+            </p>
+          </div>
+          <button
+            type="button"
+            (click)="cerrarPanel()"
+            class="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            aria-label="Cerrar panel"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Indicador de preguntas abiertas sin calificar -->
+        @if (pendientesDeCalificar() > 0) {
+          <div class="mx-5 mt-4 flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>
+              <strong>{{ pendientesDeCalificar() }}</strong> pregunta(s) abierta(s) pendiente(s) de calificar.
+            </span>
+          </div>
+        }
+
+        <!-- Cuerpo: lista de respuestas -->
+        <div class="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+
+          @if (cargandoRespuestas()) {
+            <div class="flex justify-center py-10">
+              <app-loading-spinner />
+            </div>
+          } @else if (respuestasAlumno().length === 0) {
+            <div class="text-center py-10 text-sm text-slate-500">
+              Este alumno no tiene respuestas registradas.
+            </div>
+          } @else {
+            @for (resp of respuestasAlumno(); track resp.id; let i = $index) {
+              <div
+                class="border rounded-xl overflow-hidden"
+                [class.border-green-200]="resp.es_correcta === true"
+                [class.border-red-200]="resp.es_correcta === false"
+                [class.border-slate-200]="resp.es_correcta === null"
+              >
+                <!-- Cabecera de la pregunta -->
+                <div
+                  class="flex items-start justify-between px-4 py-3 text-xs font-semibold"
+                  [class.bg-green-50]="resp.es_correcta === true"
+                  [class.bg-red-50]="resp.es_correcta === false"
+                  [class.bg-slate-50]="resp.es_correcta === null"
+                >
+                  <span class="text-slate-600 uppercase tracking-wider">
+                    Pregunta {{ i + 1 }}
+                    @if (resp.tipo === 'texto_abierto') {
+                      <span class="ml-1 text-slate-400">(Abierta)</span>
+                    }
+                  </span>
+                  <!-- Indicador de estado -->
+                  @if (resp.es_correcta === true) {
+                    <span class="flex items-center gap-1 text-green-700">
+                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                      </svg>
+                      Correcta
+                    </span>
+                  } @else if (resp.es_correcta === false) {
+                    <span class="flex items-center gap-1 text-red-600">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Incorrecta
+                    </span>
+                  } @else {
+                    <span class="text-amber-600">Sin calificar</span>
+                  }
+                </div>
+
+                <!-- Cuerpo de la pregunta -->
+                <div class="px-4 py-3 flex flex-col gap-2">
+                  <!-- Texto de la pregunta -->
+                  <p class="text-sm font-medium text-slate-800">{{ resp.pregunta_texto }}</p>
+
+                  <!-- Respuesta del alumno -->
+                  @if (resp.tipo === 'opcion_multiple') {
+                    <p class="text-sm text-slate-600">
+                      <span class="text-xs font-medium text-slate-400 uppercase tracking-wider mr-1">Respondió:</span>
+                      {{ resp.opcion_texto ?? '(Sin respuesta)' }}
+                    </p>
+                  } @else {
+                    <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Respuesta:</p>
+                      <p class="text-sm text-slate-700 whitespace-pre-wrap">
+                        {{ resp.respuesta_abierta?.trim() || '(Sin respuesta)' }}
+                      </p>
+                    </div>
+
+                    <!-- Bug 5: Botones de calificación para preguntas abiertas -->
+                    <div class="flex gap-2 mt-1">
+                      <button
+                        type="button"
+                        (click)="calificarRespuesta(resp.id, true)"
+                        [disabled]="calificando()"
+                        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-50"
+                        [class.bg-green-600]="resp.es_correcta === true"
+                        [class.text-white]="resp.es_correcta === true"
+                        [class.border-green-600]="resp.es_correcta === true"
+                        [class.bg-white]="resp.es_correcta !== true"
+                        [class.text-green-700]="resp.es_correcta !== true"
+                        [class.border-green-300]="resp.es_correcta !== true"
+                        [class.hover:bg-green-50]="resp.es_correcta !== true"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        Correcta
+                      </button>
+                      <button
+                        type="button"
+                        (click)="calificarRespuesta(resp.id, false)"
+                        [disabled]="calificando()"
+                        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-50"
+                        [class.bg-red-500]="resp.es_correcta === false"
+                        [class.text-white]="resp.es_correcta === false"
+                        [class.border-red-500]="resp.es_correcta === false"
+                        [class.bg-white]="resp.es_correcta !== false"
+                        [class.text-red-600]="resp.es_correcta !== false"
+                        [class.border-red-300]="resp.es_correcta !== false"
+                        [class.hover:bg-red-50]="resp.es_correcta !== false"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Incorrecta
+                      </button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          }
+
+        </div>
+
+        <!-- Pie del panel: métricas recalculadas -->
+        @if (alumnoSeleccionado() && !cargandoRespuestas()) {
+          <div class="border-t border-slate-200 px-5 py-3 bg-slate-50 shrink-0">
+            <div class="flex items-center justify-between text-xs text-slate-600">
+              <span>
+                Correctas: <strong class="text-green-600">{{ alumnoSeleccionado()!.total_correctas ?? 0 }}</strong>
+              </span>
+              <span>
+                Incorrectas: <strong class="text-red-500">{{ alumnoSeleccionado()!.total_incorrectas ?? 0 }}</strong>
+              </span>
+              <span>
+                Nota: <strong
+                  [class.text-green-600]="(alumnoSeleccionado()!.porcentaje ?? 0) >= 60"
+                  [class.text-red-500]="(alumnoSeleccionado()!.porcentaje ?? 0) < 60"
+                >{{ alumnoSeleccionado()!.porcentaje ?? 0 }}%</strong>
+              </span>
+            </div>
+          </div>
+        }
+
+      </aside>
+    }
   `,
 })
 export class ResultadosComponent implements OnInit {
@@ -251,6 +467,18 @@ export class ResultadosComponent implements OnInit {
   readonly cargando = signal(false);
   readonly error    = signal<string | null>(null);
 
+  // ── Bug 5: Estado del panel de respuestas ────────────────────────
+
+  /** Alumno cuyas respuestas se están revisando */
+  readonly alumnoSeleccionado = signal<SesionAlumnoConDatos | null>(null);
+
+  /** Respuestas del alumno seleccionado */
+  readonly respuestasAlumno = signal<RespuestaConDatos[]>([]);
+
+  readonly panelAbierto         = signal(false);
+  readonly cargandoRespuestas   = signal(false);
+  readonly calificando          = signal(false);
+
   // ── Computed ─────────────────────────────────────────────────────
 
   /** Cantidad de alumnos que enviaron el examen */
@@ -271,6 +499,13 @@ export class ResultadosComponent implements OnInit {
   /** Alumnos con porcentaje >= 60 */
   readonly totalAprobados = computed(
     () => this.filas().filter((f) => (f.porcentaje ?? 0) >= 60).length
+  );
+
+  /** Bug 5: preguntas abiertas del alumno seleccionado sin calificar */
+  readonly pendientesDeCalificar = computed(
+    () => this.respuestasAlumno().filter(
+      (r) => r.tipo === 'texto_abierto' && r.es_correcta === null
+    ).length
   );
 
   // ── Ciclo de vida ─────────────────────────────────────────────
@@ -368,5 +603,142 @@ export class ResultadosComponent implements OnInit {
 
     this.filas.set(filasEnriquecidas);
     this.cargando.set(false);
+  }
+
+  // ── Bug 5: Panel de respuestas ────────────────────────────────
+
+  /**
+   * Abre el panel lateral con las respuestas del alumno seleccionado.
+   * @param fila Fila del alumno que se seleccionó
+   */
+  async abrirRespuestasAlumno(fila: SesionAlumnoConDatos): Promise<void> {
+    this.alumnoSeleccionado.set(fila);
+    this.panelAbierto.set(true);
+    await this.cargarRespuestasDeAlumno(fila.id);
+  }
+
+  /** Cierra el panel lateral y limpia el estado */
+  cerrarPanel(): void {
+    this.panelAbierto.set(false);
+    this.alumnoSeleccionado.set(null);
+    this.respuestasAlumno.set([]);
+  }
+
+  /**
+   * Bug 5: Carga las respuestas de un alumno con datos de pregunta y opción.
+   * @param sesionAlumnoId UUID del registro sesion_alumnos
+   */
+  private async cargarRespuestasDeAlumno(sesionAlumnoId: string): Promise<void> {
+    this.cargandoRespuestas.set(true);
+
+    const { data, error } = await this.supabase.client
+      .from('respuestas')
+      .select(`
+        id,
+        es_correcta,
+        respuesta_abierta,
+        opcion_id,
+        preguntas ( texto, tipo ),
+        opciones ( texto )
+      `)
+      .eq('sesion_alumno_id', sesionAlumnoId);
+
+    if (error) {
+      console.error('[ResultadosComponent] cargarRespuestasDeAlumno:', error);
+      this.cargandoRespuestas.set(false);
+      return;
+    }
+
+    const enriquecidas: RespuestaConDatos[] = (data ?? []).map((r: any) => ({
+      id:                r.id,
+      es_correcta:       r.es_correcta,
+      respuesta_abierta: r.respuesta_abierta,
+      opcion_id:         r.opcion_id,
+      pregunta_texto:    r.preguntas?.texto ?? '—',
+      tipo:              r.preguntas?.tipo ?? 'opcion_multiple',
+      opcion_texto:      r.opciones?.texto ?? null,
+    }));
+
+    this.respuestasAlumno.set(enriquecidas);
+    this.cargandoRespuestas.set(false);
+  }
+
+  /**
+   * Bug 5: Califica una respuesta abierta y recalcula las métricas del alumno.
+   * @param respuestaId UUID de la respuesta en la tabla `respuestas`
+   * @param esCorrecta  true = correcta, false = incorrecta
+   */
+  async calificarRespuesta(respuestaId: string, esCorrecta: boolean): Promise<void> {
+    if (this.calificando()) return;
+    this.calificando.set(true);
+
+    // 1. Actualizar es_correcta en la tabla respuestas
+    const { error } = await this.supabase.client
+      .from('respuestas')
+      .update({ es_correcta: esCorrecta })
+      .eq('id', respuestaId);
+
+    if (error) {
+      console.error('[ResultadosComponent] calificarRespuesta:', error);
+      this.calificando.set(false);
+      return;
+    }
+
+    // 2. Actualizar el signal local de respuestas
+    this.respuestasAlumno.update((lista) =>
+      lista.map((r) => r.id === respuestaId ? { ...r, es_correcta: esCorrecta } : r)
+    );
+
+    // 3. Recalcular métricas en sesion_alumnos
+    await this._recalcularMetricas();
+
+    this.calificando.set(false);
+  }
+
+  /**
+   * Bug 5: Recalcula porcentaje, total_correctas y total_incorrectas
+   * del alumno seleccionado basándose en sus respuestas actuales,
+   * y actualiza tanto la BD como el signal local.
+   */
+  private async _recalcularMetricas(): Promise<void> {
+    const alumno = this.alumnoSeleccionado();
+    if (!alumno) return;
+
+    const respuestas = this.respuestasAlumno();
+    const totalPreguntas = this.totalPreguntas();
+
+    const totalCorrectas   = respuestas.filter((r) => r.es_correcta === true).length;
+    const totalIncorrectas = respuestas.filter((r) => r.es_correcta === false).length;
+    const porcentaje = totalPreguntas > 0
+      ? Math.round((totalCorrectas / totalPreguntas) * 100)
+      : 0;
+
+    // Actualizar en Supabase
+    await this.supabase.client
+      .from('sesion_alumnos')
+      .update({
+        total_correctas:   totalCorrectas,
+        total_incorrectas: totalIncorrectas,
+        porcentaje,
+      })
+      .eq('id', alumno.id);
+
+    // Actualizar en el signal alumnoSeleccionado
+    const alumnoActualizado: SesionAlumnoConDatos = {
+      ...alumno,
+      total_correctas:   totalCorrectas,
+      total_incorrectas: totalIncorrectas,
+      porcentaje,
+    };
+    this.alumnoSeleccionado.set(alumnoActualizado);
+
+    // Actualizar en el signal filas (para que la tabla refleje el cambio)
+    this.filas.update((lista) =>
+      lista.map((f) =>
+        f.id === alumno.id
+          ? { ...f, total_correctas: totalCorrectas, total_incorrectas: totalIncorrectas, porcentaje }
+          : f
+      )
+    );
   }
 }

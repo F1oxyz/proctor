@@ -197,6 +197,78 @@ export class GruposService {
   }
 
   /**
+   * Actualiza el nombre de un alumno en la BD y en el signal local.
+   *
+   * @param alumnoId  - UUID del alumno a editar
+   * @param nuevoNombre - Nuevo nombre completo
+   */
+  async editarAlumno(alumnoId: string, nuevoNombre: string): Promise<ServiceResult> {
+    try {
+      const { error } = await this.supabase
+        .from('alumnos')
+        .update({ nombre_completo: nuevoNombre.trim() })
+        .eq('id', alumnoId);
+
+      if (error) throw error;
+
+      // Actualizar signal local sin recargar de BD
+      this.alumnosGrupoActivo.update((lista) =>
+        lista.map((a) =>
+          a.id === alumnoId ? { ...a, nombre_completo: nuevoNombre.trim() } : a
+        )
+      );
+
+      return { data: null, error: null };
+    } catch (err: any) {
+      const msg = 'No se pudo actualizar el nombre del alumno.';
+      console.error('[GruposService.editarAlumno]', err);
+      return { data: null, error: msg };
+    }
+  }
+
+  /**
+   * Elimina un alumno de la BD y del signal local.
+   * La BD eliminará en cascada sus sesion_alumnos y respuestas.
+   *
+   * @param alumnoId - UUID del alumno a eliminar
+   */
+  async eliminarAlumno(alumnoId: string): Promise<ServiceResult> {
+    try {
+      // Obtener grupo_id antes de eliminar para actualizar el conteo
+      const alumno = this.alumnosGrupoActivo().find((a) => a.id === alumnoId);
+
+      const { error } = await this.supabase
+        .from('alumnos')
+        .delete()
+        .eq('id', alumnoId);
+
+      if (error) throw error;
+
+      // Actualizar signal de alumnos localmente
+      this.alumnosGrupoActivo.update((lista) =>
+        lista.filter((a) => a.id !== alumnoId)
+      );
+
+      // Actualizar conteo en el grupo correspondiente
+      if (alumno?.grupo_id) {
+        this.grupos.update((lista) =>
+          lista.map((g) =>
+            g.id === alumno.grupo_id
+              ? { ...g, total_alumnos: Math.max(0, g.total_alumnos - 1) }
+              : g
+          )
+        );
+      }
+
+      return { data: null, error: null };
+    } catch (err: any) {
+      const msg = 'No se pudo eliminar al alumno.';
+      console.error('[GruposService.eliminarAlumno]', err);
+      return { data: null, error: msg };
+    }
+  }
+
+  /**
    * Elimina un grupo por ID.
    * La BD elimina en cascada todos sus alumnos (ON DELETE CASCADE).
    * Recarga la lista de grupos tras eliminar.

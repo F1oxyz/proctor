@@ -74,6 +74,11 @@ export class PeerService {
   /** Mensaje de error de PeerJS */
   readonly error = signal<string | null>(null);
 
+  /** Contador de reintentos cuando el ID del receptor está ocupado */
+  private _retryCount = 0;
+  private readonly _MAX_RETRIES = 4;
+  private _retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
   // ── Modo DOCENTE (receptor) ──────────────────────────────────────
 
   /**
@@ -84,8 +89,10 @@ export class PeerService {
    * @param sesionId UUID de la sesión activa
    */
   async inicializarComoReceptor(sesionId: string): Promise<void> {
-    // Limpiar instancia anterior si existe
-    this.destruir();
+    // Si es una llamada externa (no un retry): resetear contadores
+    if (this._retryCount === 0) {
+      this.destruir();
+    }
 
     this.inicializando.set(true);
     this.error.set(null);
@@ -114,15 +121,36 @@ export class PeerService {
         this.miPeerId.set(id);
         this.inicializando.set(false);
         this.listo.set(true);
+        this._retryCount = 0; // reset al conectar exitosamente
         console.log(`[PeerService] Receptor listo. ID: ${id}`);
       });
 
       this.peer.on('error', (err) => {
-        // Si el ID ya está en uso (otro docente con misma sesión), reintentar sin ID fijo
+        // Si el ID ya está en uso (docente recargó la página y el peer anterior
+        // aún está registrado en el servidor PeerJS), reintentar con el MISMO ID
+        // tras un breve retraso (el servidor libera IDs inactivos en ~30s).
         if (err.type === 'unavailable-id') {
-          console.warn('[PeerService] ID ocupado, reintentando sin ID fijo...');
           this.peer?.destroy();
-          this.inicializarComoReceptorSinId();
+          this.peer = null;
+
+          if (this._retryCount < this._MAX_RETRIES) {
+            this._retryCount++;
+            const delay = this._retryCount * 2000; // 2s, 4s, 6s, 8s
+            console.warn(
+              `[PeerService] ID ocupado. Reintentando con mismo ID en ${delay}ms (intento ${this._retryCount}/${this._MAX_RETRIES})...`
+            );
+            this._retryTimeout = setTimeout(
+              () => void this.inicializarComoReceptor(sesionId),
+              delay
+            );
+          } else {
+            // Agotados los reintentos → informar al usuario
+            this.error.set(
+              'No se pudo reservar el canal de pantallas. Recarga la página para intentarlo de nuevo.'
+            );
+            this.inicializando.set(false);
+            console.error('[PeerService] Reintentos agotados para ID:', peerId);
+          }
         } else {
           this.error.set(`Error de conexión WebRTC: ${err.message}`);
           this.inicializando.set(false);
@@ -147,25 +175,6 @@ export class PeerService {
     }
   }
 
-  /**
-   * Fallback: inicializa receptor sin ID fijo cuando el ID predecible
-   * ya está en uso. PeerJS asigna un ID aleatorio.
-   */
-  private async inicializarComoReceptorSinId(): Promise<void> {
-    const { Peer } = await import('peerjs');
-    this.peer = new Peer({
-      config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] },
-    });
-
-    this.peer.on('open', (id) => {
-      this.miPeerId.set(id);
-      this.listo.set(true);
-    });
-
-    this.peer.on('call', (llamada: MediaConnection) => {
-      this.manejarLlamadaEntrante(llamada);
-    });
-  }
 
   /**
    * Maneja una llamada entrante de un alumno.
@@ -293,6 +302,13 @@ export class PeerService {
    * Llamar en ngOnDestroy del MonitorComponent o al finalizar la sesión.
    */
   destruir(): void {
+    // Cancelar cualquier retry pendiente
+    if (this._retryTimeout != null) {
+      clearTimeout(this._retryTimeout);
+      this._retryTimeout = null;
+    }
+    this._retryCount = 0;
+
     if (this.peer) {
       // Cerrar todos los streams activos
       this.streamsPorAlumno().forEach((entrada) => {

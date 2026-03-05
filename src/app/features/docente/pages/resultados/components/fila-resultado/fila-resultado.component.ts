@@ -4,7 +4,7 @@
  * Renderiza una fila de la tabla de resultados del docente.
  * Una fila = un alumno con todas sus métricas.
  *
- * MÉTRICAS (idéntico a ThatQuiz):
+ * MÉTRICAS :
  *  Nombre | Nota% | Cumplido | Sin cumplir | Acertado | Equivocado | Tiempo | Seg/preg
  *
  * ARQUITECTURA:

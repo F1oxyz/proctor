@@ -72,6 +72,16 @@ interface ServiceResult<T = void> {
   error: string | null;
 }
 
+/** Resumen de sesión para el historial */
+export interface SesionResumen {
+  id: string;
+  codigo_acceso: string;
+  estado: string;
+  iniciada_en: string | null;
+  finalizada_en: string | null;
+  examen_titulo: string;
+}
+
 @Injectable()
 export class ExamenesService {
   private readonly supabase = inject(SupabaseService).client;
@@ -243,7 +253,46 @@ export class ExamenesService {
 
       if (errExamen) throw errExamen;
 
-      // ── 2. Borrar preguntas antiguas (CASCADE elimina opciones) ──
+      // ── 2. Borrar respuestas antiguas antes de borrar preguntas ──
+      // (FK: respuestas.pregunta_id → preguntas.id con RESTRICT bloquea el delete)
+      // Ruta A: borrar por pregunta_id directamente
+      const { data: preguntasActuales } = await this.supabase
+        .from('preguntas')
+        .select('id')
+        .eq('examen_id', examenId);
+
+      const preguntaIdsActuales = (preguntasActuales ?? []).map((p: any) => p.id);
+      if (preguntaIdsActuales.length > 0) {
+        await this.supabase
+          .from('respuestas')
+          .delete()
+          .in('pregunta_id', preguntaIdsActuales);
+      }
+
+      // Ruta B: borrar por sesion_alumno_id (fallback si RLS bloquea ruta A)
+      // Obtenemos sesiones de este examen → sesion_alumnos → respuestas
+      const { data: sesionesDelExamen } = await this.supabase
+        .from('sesiones')
+        .select('id')
+        .eq('examen_id', examenId);
+
+      const sesionIds = (sesionesDelExamen ?? []).map((s: any) => s.id);
+      if (sesionIds.length > 0) {
+        const { data: sesionAlumnosData } = await this.supabase
+          .from('sesion_alumnos')
+          .select('id')
+          .in('sesion_id', sesionIds);
+
+        const sesionAlumnoIds = (sesionAlumnosData ?? []).map((sa: any) => sa.id);
+        if (sesionAlumnoIds.length > 0) {
+          await this.supabase
+            .from('respuestas')
+            .delete()
+            .in('sesion_alumno_id', sesionAlumnoIds);
+        }
+      }
+
+      // ── 3. Borrar preguntas antiguas (CASCADE elimina opciones) ──
       const { error: errDelete } = await this.supabase
         .from('preguntas')
         .delete()
@@ -251,7 +300,7 @@ export class ExamenesService {
 
       if (errDelete) throw errDelete;
 
-      // ── 3. Re-insertar preguntas y opciones ──────────
+      // ── 4. Re-insertar preguntas y opciones ──────────
       if (payload.preguntas.length > 0) {
         await this._insertarPreguntasYOpciones(examenId, payload.preguntas);
       }
@@ -269,14 +318,39 @@ export class ExamenesService {
   }
 
   /**
-   * Elimina un examen. La BD elimina en cascade sus preguntas y opciones.
+   * Elimina un examen junto con todas sus sesiones asociadas.
+   * Bug 4: primero elimina sesiones (FK constraint), luego el examen.
    *
    * @param examenId - UUID del examen a eliminar
    */
   async eliminarExamen(examenId: string): Promise<ServiceResult> {
     this.cargando.set(true);
+    this.error.set(null);
 
     try {
+      // 1. Borrar respuestas primero (FK: respuestas.pregunta_id → preguntas.id)
+      const { data: preguntasDelExamen } = await this.supabase
+        .from('preguntas')
+        .select('id')
+        .eq('examen_id', examenId);
+
+      const preguntaIds = (preguntasDelExamen ?? []).map((p: any) => p.id);
+      if (preguntaIds.length > 0) {
+        await this.supabase
+          .from('respuestas')
+          .delete()
+          .in('pregunta_id', preguntaIds);
+      }
+
+      // 2. Eliminar sesiones asociadas (FK bloquea eliminar el examen directamente)
+      const { error: errSesiones } = await this.supabase
+        .from('sesiones')
+        .delete()
+        .eq('examen_id', examenId);
+
+      if (errSesiones) throw errSesiones;
+
+      // 3. Eliminar el examen (CASCADE borra preguntas y opciones)
       const { error } = await this.supabase
         .from('examenes')
         .delete()
@@ -284,15 +358,44 @@ export class ExamenesService {
 
       if (error) throw error;
 
-      // Actualizar signal localmente sin recargar de BD
       this.examenes.update((lista) => lista.filter((e) => e.id !== examenId));
       return { data: null, error: null };
     } catch (err: any) {
-      const msg = 'No se pudo eliminar el examen.';
+      const msg = 'No se pudo eliminar el examen. Verifica que no haya sesiones activas.';
+      this.error.set(msg);
       console.error('[ExamenesService.eliminarExamen]', err);
       return { data: null, error: msg };
     } finally {
       this.cargando.set(false);
+    }
+  }
+
+  /**
+   * Carga el historial de sesiones del maestro.
+   * Bug 6: permite ver sesiones pasadas con enlace a resultados.
+   */
+  async cargarSesionesRecientes(): Promise<SesionResumen[]> {
+    try {
+      const maestroId = this.auth.currentUser()?.id;
+      if (!maestroId) return [];
+
+      const { data } = await this.supabase
+        .from('sesiones')
+        .select('id, codigo_acceso, estado, iniciada_en, finalizada_en, examenes(titulo)')
+        .eq('maestro_id', maestroId)
+        .order('iniciada_en', { ascending: false })
+        .limit(15);
+
+      return (data ?? []).map((s: any) => ({
+        id:             s.id,
+        codigo_acceso:  s.codigo_acceso,
+        estado:         s.estado,
+        iniciada_en:    s.iniciada_en,
+        finalizada_en:  s.finalizada_en,
+        examen_titulo:  s.examenes?.titulo ?? '—',
+      }));
+    } catch {
+      return [];
     }
   }
 

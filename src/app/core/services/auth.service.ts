@@ -13,9 +13,12 @@ export class AuthService {
   readonly session = signal<Session | null>(null);
   readonly loading = signal(false);
 
+  /** Promesa que resuelve cuando se completa la inicialización async de la sesión */
+  private readonly _inicializacionPromise: Promise<void>;
+
   constructor() {
     // Inicializar sesión desde Supabase al arrancar la app
-    this.supabase.auth.getSession().then(({ data }) => {
+    this._inicializacionPromise = this.supabase.auth.getSession().then(({ data }) => {
       this.session.set(data.session);
       this.currentUser.set(data.session?.user ?? null);
     });
@@ -25,6 +28,14 @@ export class AuthService {
       this.session.set(session);
       this.currentUser.set(session?.user ?? null);
     });
+  }
+
+  /**
+   * Espera a que la sesión de Supabase se haya inicializado.
+   * Usar en guards para evitar la condición de carrera al refrescar la página.
+   */
+  aguardarInicializacion(): Promise<void> {
+    return this._inicializacionPromise;
   }
 
   /**

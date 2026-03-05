@@ -1,32 +1,13 @@
 /**
  * monitor.component.ts
  * ─────────────────────────────────────────────────────────────────
- * Panel principal de monitoreo en vivo. RF-04.
- * Ruta: /docente/monitor/:sesionId  (protegida por authGuard)
- *
- * RESPONSABILIDADES:
- *  - Cargar la sesión y arrancar Supabase Realtime (SesionesService)
- *  - Inicializar PeerJS como receptor de streams (PeerService)
- *  - Mostrar el grid de AlumnoTileComponent (4 columnas en desktop)
- *  - Leyenda de estados en el footer (Active/Idle/Flagged/Offline)
- *  - Temporizador regresivo del examen
- *  - Botón "End Session" → confirmar → finalizar → navegar a resultados
- *  - Modal de pantalla completa al expandir un tile
- *
- * DISEÑO (según PDF - página 6):
- *  - Header fijo (MonitorNavbarComponent)
- *  - Grid 4 columnas con las cards de alumnos
- *  - Footer con leyenda de estados + "Last synced: Just now"
- *
- * INTEGRACIÓN:
- *  - SesionesService provee la lista reactiva via Supabase Realtime
- *  - PeerService provee los streams WebRTC en tiempo real
- *  - Cruza ambas fuentes por alumno_id para mostrar stream en el tile correcto
- *
- * ARQUITECTURA:
- *  - Provee SesionesService (se destruye al salir de la ruta)
- *  - PeerService viene de core (singleton en root)
- *  - OnPush
+ * CAMBIOS:
+ *  - Bug 7: timer NO arranca automáticamente. El profesor hace clic en
+ *           "Iniciar Examen" en el navbar para arrancar el examen y el timer.
+ *  - Bug 10: totalAlumnos pasa el conteo real del grupo (sesionActiva.total_alumnos)
+ *  - Bug 11: soporte para cambio de columnas desde el navbar
+ *  - Bug 3: iniciarTemporizador() llama _finalizarSesionPorTiempo() cuando llega a 0
+ *  - Bug 6: _configurarTemporizador() calcula tiempo restante desde iniciada_en
  * ─────────────────────────────────────────────────────────────────
  */
 
@@ -64,13 +45,33 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
         [codigoExamen]="sesiones.sesionActiva()?.grupo_nombre ?? ''"
         [codigoAcceso]="sesiones.sesionActiva()?.codigo_acceso ?? ''"
         [alumnosConectados]="alumnosConectados()"
-        [totalAlumnos]="sesiones.alumnosEnSesion().length"
+        [totalAlumnos]="sesiones.sesionActiva()?.total_alumnos ?? 0"
         [segundosRestantes]="segundosRestantes()"
+        [examenIniciado]="examenIniciado()"
         (finalizarSesion)="confirmarFinalizacion()"
+        (iniciarExamen)="onIniciarExamen()"
+        (cambioColumnas)="columnas.set($event)"
       />
 
       <!-- ── Contenido principal ── -->
       <main class="flex-1 px-4 py-6 max-w-screen-2xl mx-auto w-full">
+
+        <!-- ── Banner: esperando inicio ── -->
+        @if (!examenIniciado()) {
+          <div class="mb-6 flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-500 shrink-0 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div class="flex-1">
+              <p class="text-sm font-semibold text-amber-800">Examen en espera</p>
+              <p class="text-xs text-amber-600">
+                Los alumnos pueden unirse con el código
+                <span class="font-mono font-bold bg-amber-100 px-1 rounded">{{ sesiones.sesionActiva()?.codigo_acceso }}</span>.
+                Cuando estés listo, haz clic en <strong>"Iniciar Examen"</strong>.
+              </p>
+            </div>
+          </div>
+        }
 
         <!-- ── Loading inicial ── -->
         @if (sesiones.cargando() && sesiones.alumnosEnSesion().length === 0) {
@@ -102,7 +103,16 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
 
         <!-- ── Grid de tiles ── -->
         @if (sesiones.alumnosEnSesion().length > 0) {
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4">
+          <div
+            class="grid gap-4"
+            [class.grid-cols-2]="columnas() === 2"
+            [class.grid-cols-2]="columnas() === 2"
+            [class.sm:grid-cols-3]="columnas() === 3"
+            [class.lg:grid-cols-3]="columnas() === 3"
+            [class.sm:grid-cols-3]="columnas() === 4"
+            [class.lg:grid-cols-4]="columnas() === 4"
+            [class.xl:grid-cols-4]="columnas() === 4"
+          >
             @for (alumno of sesiones.alumnosEnSesion(); track alumno.alumno_id) {
               <app-alumno-tile
                 [alumno]="alumno"
@@ -137,8 +147,6 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
       <!-- ── Footer: leyenda + última sincronización ── -->
       <footer class="px-4 py-3 bg-white border-t border-slate-200">
         <div class="max-w-screen-2xl mx-auto flex items-center justify-between flex-wrap gap-2">
-
-          <!-- Leyenda de estados -->
           <div class="flex items-center gap-4 flex-wrap text-xs text-slate-500">
             <span class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
@@ -157,8 +165,6 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
               Offline ({{ conteoEstado('offline') }})
             </span>
           </div>
-
-          <!-- Última sincronización -->
           <span class="text-xs text-slate-400 flex items-center gap-1">
             Last synced: Just now
             <button
@@ -172,7 +178,6 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
               </svg>
             </button>
           </span>
-
         </div>
       </footer>
 
@@ -231,7 +236,6 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
         aria-modal="true"
         (click)="cerrarPantallaCompleta()"
       >
-        <!-- Header del modal -->
         <div
           class="flex items-center justify-between px-6 py-4 bg-black/50"
           (click)="$event.stopPropagation()"
@@ -251,17 +255,9 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
             </svg>
           </button>
         </div>
-
-        <!-- Video a pantalla completa -->
         <div class="flex-1 flex items-center justify-center p-4">
           @if (streamDeAlumno(alumnoExpandido()!.alumno_id)) {
-            <video
-              #videoExpandido
-              class="max-w-full max-h-full rounded-lg"
-              autoplay
-              muted
-              playsinline
-            ></video>
+            <video class="max-w-full max-h-full rounded-lg" autoplay muted playsinline></video>
           } @else {
             <p class="text-slate-400 text-sm">Sin stream disponible</p>
           }
@@ -279,41 +275,38 @@ export class MonitorComponent implements OnInit, OnDestroy {
 
   // ── Estado ───────────────────────────────────────────────────────
 
-  /** Segundos restantes del examen para el navbar */
   readonly segundosRestantes = signal(0);
   private intervaloTimer: ReturnType<typeof setInterval> | null = null;
 
-  /** Modal de confirmación de finalizar */
+  /** Bug 7: el examen no ha iniciado hasta que el profesor lo active */
+  readonly examenIniciado = signal(false);
+
   readonly mostrarConfirmacion = signal(false);
-
-  /** true mientras se procesa la finalización */
   readonly finalizando = signal(false);
-
-  /** Alumno cuya pantalla se está viendo en modo fullscreen */
   readonly alumnoExpandido = signal<SesionAlumnoConDatos | null>(null);
+
+  /** Bug 11: número de columnas del grid (configurable desde el navbar) */
+  readonly columnas = signal<2 | 3 | 4>(4);
 
   // ── Computed ─────────────────────────────────────────────────────
 
-  /** Alumnos con stream activo (online) */
   readonly alumnosConectados = computed(
     () => this.peer.streamsPorAlumno().size
   );
 
-  /** Alumnos que aún están 'en_progreso' (no han enviado ni son offline) */
   readonly alumnosActivos = computed(
     () => this.sesiones.alumnosEnSesion()
       .filter((a) => a.estado === 'en_progreso').length
   );
 
-  /** Cuenta de cada estado para la leyenda del footer */
   conteoEstado(estado: 'activo' | 'idle' | 'flagged' | 'offline'): number {
     return this.sesiones.alumnosEnSesion().filter((a) => {
       const tieneStream = this.peer.streamsPorAlumno().has(a.alumno_id);
       switch (estado) {
         case 'activo':  return tieneStream && a.estado === 'en_progreso';
         case 'offline': return !tieneStream && a.estado !== 'enviado';
-        case 'idle':    return false; // detección de idle requiere más lógica (extensión futura)
-        case 'flagged': return false; // detección de múltiples monitores (extensión futura)
+        case 'idle':    return false;
+        case 'flagged': return false;
         default:        return false;
       }
     }).length;
@@ -328,53 +321,112 @@ export class MonitorComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // 1. Cargar datos de la sesión
     const ok = await this.sesiones.cargarSesion(sesionId);
     if (!ok) {
       this.router.navigate(['/docente/examenes']);
       return;
     }
 
-    // 2. Inicializar PeerJS como receptor
     await this.peer.inicializarComoReceptor(sesionId);
-
-    // 3. Arrancar Realtime de alumnos
     await this.sesiones.iniciarMonitoreo(sesionId);
 
-    // 4. Iniciar temporizador
-    const duracionSeg = (this.sesiones.sesionActiva()?.duracion_min ?? 30) * 60;
-    this.segundosRestantes.set(duracionSeg);
-    this.iniciarTemporizador();
+    // Bug 7 + Bug 6: Si la sesión ya estaba 'activa' (profesor recarga la página),
+    // restaurar el estado de iniciado calculando el tiempo restante real.
+    if (this.sesiones.sesionActiva()?.estado === 'activa') {
+      this.examenIniciado.set(true);
+      this._configurarTemporizador();  // Bug 6: usa iniciada_en para calcular restante
+      this.iniciarTemporizador();
+    }
   }
 
   ngOnDestroy(): void {
-    // Limpiar temporizador y PeerJS al salir del monitor
-    if (this.intervaloTimer) clearInterval(this.intervaloTimer);
+    this._detenerTemporizador();
     this.peer.destruir();
     this.sesiones.destruir();
   }
 
   // ── Temporizador ──────────────────────────────────────────────
 
+  /**
+   * Bug 6: Calcula los segundos restantes a partir de iniciada_en.
+   * Si no hay iniciada_en, usa la duración completa.
+   */
+  private _configurarTemporizador(): void {
+    const sesion = this.sesiones.sesionActiva();
+    if (!sesion) return;
+    const duracionSeg = sesion.duracion_min * 60;
+    if (sesion.iniciada_en) {
+      const ahora = Date.now();
+      const iniciadaMs = new Date(sesion.iniciada_en).getTime();
+      const transcurridos = Math.floor((ahora - iniciadaMs) / 1000);
+      this.segundosRestantes.set(Math.max(0, duracionSeg - transcurridos));
+    } else {
+      this.segundosRestantes.set(duracionSeg);
+    }
+  }
+
+  /**
+   * Bug 3: cuando el contador llega a 0, finaliza la sesión automáticamente.
+   */
   private iniciarTemporizador(): void {
+    this._detenerTemporizador();
     this.intervaloTimer = setInterval(() => {
-      this.segundosRestantes.update((s) => Math.max(0, s - 1));
+      this.segundosRestantes.update((s) => {
+        if (s <= 1) {
+          this._detenerTemporizador();
+          void this._finalizarSesionPorTiempo();
+          return 0;
+        }
+        return s - 1;
+      });
     }, 1000);
+  }
+
+  private _detenerTemporizador(): void {
+    if (this.intervaloTimer) {
+      clearInterval(this.intervaloTimer);
+      this.intervaloTimer = null;
+    }
+  }
+
+  /**
+   * Bug 3: Auto-finaliza la sesión cuando el tiempo se agota.
+   */
+  private async _finalizarSesionPorTiempo(): Promise<void> {
+    if (this.finalizando()) return;
+    const sesionId = this.sesiones.sesionActiva()?.id;
+    if (!sesionId) return;
+    this.finalizando.set(true);
+    const ok = await this.sesiones.finalizarSesion(sesionId);
+    this.finalizando.set(false);
+    this.mostrarConfirmacion.set(false);
+    if (ok) this.router.navigate(['/docente/resultados', sesionId]);
   }
 
   // ── Handlers ─────────────────────────────────────────────────────
 
-  /** Devuelve el MediaStream de un alumno dado su alumno_id */
+  /** Bug 7: el profesor inicia el examen manualmente */
+  async onIniciarExamen(): Promise<void> {
+    const sesionId = this.sesiones.sesionActiva()?.id;
+    if (!sesionId || this.examenIniciado()) return;
+
+    const ok = await this.sesiones.iniciarExamenActivo(sesionId);
+    if (ok) {
+      this.examenIniciado.set(true);
+      // Bug 6: iniciada_en ya fue seteado en el signal por iniciarExamenActivo()
+      this._configurarTemporizador();
+      this.iniciarTemporizador();
+    }
+  }
+
   streamDeAlumno(alumnoId: string): MediaStream | null {
     return this.peer.streamsPorAlumno().get(alumnoId)?.stream ?? null;
   }
 
-  /** Muestra el modal de confirmación de finalizar sesión */
   confirmarFinalizacion(): void {
     this.mostrarConfirmacion.set(true);
   }
 
-  /** Finaliza la sesión y navega a los resultados */
   async finalizarSesion(): Promise<void> {
     const sesionId = this.sesiones.sesionActiva()?.id;
     if (!sesionId || this.finalizando()) return;
@@ -387,38 +439,25 @@ export class MonitorComponent implements OnInit, OnDestroy {
     this.mostrarConfirmacion.set(false);
 
     if (ok) {
-      // Detener temporizador antes de navegar
-      if (this.intervaloTimer) clearInterval(this.intervaloTimer);
+      this._detenerTemporizador();
       this.router.navigate(['/docente/resultados', sesionId]);
     }
   }
 
-  /** Abre la vista de pantalla completa de un alumno */
   abrirPantallaCompleta(alumno: SesionAlumnoConDatos): void {
     this.alumnoExpandido.set(alumno);
   }
 
-  /** Cierra la vista de pantalla completa */
   cerrarPantallaCompleta(): void {
     this.alumnoExpandido.set(null);
   }
 
-  /**
-   * Recarga manualmente la lista de alumnos.
-   * Útil si el Realtime falla temporalmente.
-   */
   sincronizarManual(): void {
     const sesionId = this.sesiones.sesionActiva()?.id;
     if (sesionId) this.sesiones.iniciarMonitoreo(sesionId);
   }
 
-  /**
-   * Envía un recordatorio visual al alumno (extensión futura).
-   * Por ahora loggea; en producción podría usar Supabase Realtime
-   * para enviar una notificación al alumno.
-   */
   enviarRecordatorio(alumno: SesionAlumnoConDatos): void {
     console.log('[Monitor] Enviar recordatorio a:', alumno.alumno_nombre);
-    // TODO: implementar via Supabase broadcast channel
   }
 }

@@ -1,30 +1,12 @@
 /**
  * examen-activo.service.ts
  * ─────────────────────────────────────────────────────────────────
- * Signal store que gestiona todo el estado del examen mientras
- * el alumno lo está resolviendo.
- *
- * RESPONSABILIDADES:
- *  - Cargar el examen desde Supabase usando el código de sesión
- *  - Registrar al alumno en sesion_alumnos (INSERT anon)
- *  - Guardar respuestas pregunta por pregunta en la tabla `respuestas`
- *  - Controlar la navegación entre preguntas (anterior / siguiente)
- *  - Calcular y guardar el resultado final al enviar
- *
- * ARQUITECTURA:
- *  - Injectable SIN providedIn:'root'. Se provee SOLO en ExamenComponent
- *    (y en SalaEsperaComponent para arrancar la sesión).
- *    Esto garantiza que el estado se destruye al salir de la ruta.
- *  - Todos los estados son signals para compatibilidad con OnPush.
- *  - No cruza con servicios del módulo docente.
- *
- * TABLAS QUE TOCA:
- *  - sesiones          → SELECT por codigo_acceso (anon)
- *  - alumnos           → SELECT lista del grupo (anon)
- *  - preguntas         → SELECT del examen (anon)
- *  - opciones          → SELECT de preguntas (anon)
- *  - sesion_alumnos    → INSERT y UPDATE (anon, políticas permiten)
- *  - respuestas        → INSERT por cada pregunta respondida (anon)
+ * BUGS CORREGIDOS:
+ *  - Bug 1: Flujo de unión → nuevo método unirseASala() con estado 'unido'
+ *           iniciarExamen() actualiza el registro existente si ya se unió
+ *  - Bug 4: SesionActiva incluye iniciada_en para sincronizar el temporizador
+ *  - Bug 6: Polling de respaldo cada 4 s cuando la sesión está 'esperando'
+ *           (por si Realtime no está configurado en Supabase)
  * ─────────────────────────────────────────────────────────────────
  */
 
@@ -57,20 +39,22 @@ export interface AlumnoActivo {
 
 /** Datos de la sesión cargada por código de acceso */
 export interface SesionActiva {
-  id: string;            // UUID de la sesión
+  id: string;
   examen_id: string;
   examen_titulo: string;
   grupo_id: string;
   duracion_min: number;
   codigo_acceso: string;
+  estado: string;        // 'esperando' | 'activa' | 'finalizada'
+  iniciada_en: string | null;  // Bug 4: cuándo inició el examen
 }
 
 /** Respuesta guardada localmente mientras el alumno navega */
 export interface RespuestaLocal {
   pregunta_id: string;
-  opcion_id: string | null;       // null si es texto_abierto
+  opcion_id: string | null;
   respuesta_abierta: string | null;
-  respondido_en: string;           // ISO timestamp
+  respondido_en: string;
 }
 
 /** Resultado final calculado al enviar */
@@ -89,67 +73,43 @@ export class ExamenActivoService {
   // ── Dependencias ────────────────────────────────────────────────
   private readonly supabase = inject(SupabaseService);
 
+  // ── Canales Realtime y polling ────────────────────────────────────
+  private _canalEstadoSesion: ReturnType<typeof this.supabase.client.channel> | null = null;
+  private _pollInterval: ReturnType<typeof setInterval> | null = null;
+
   // ── Estado principal (signals) ───────────────────────────────────
 
-  /** Datos de la sesión activa */
-  readonly sesion = signal<SesionActiva | null>(null);
-
-  /** Alumno que seleccionó su nombre en la sala de espera */
-  readonly alumno = signal<AlumnoActivo | null>(null);
-
-  /** Lista de alumnos del grupo (para el dropdown de sala-espera) */
-  readonly listaAlumnos = signal<AlumnoActivo[]>([]);
-
-  /** Preguntas del examen en orden aleatorio */
-  readonly preguntas = signal<PreguntaActiva[]>([]);
-
-  /** Índice de la pregunta actualmente visible (0-based) */
+  readonly sesion         = signal<SesionActiva | null>(null);
+  readonly alumno         = signal<AlumnoActivo | null>(null);
+  readonly listaAlumnos   = signal<AlumnoActivo[]>([]);
+  readonly preguntas      = signal<PreguntaActiva[]>([]);
   readonly indicePreguntaActual = signal(0);
-
-  /** Mapa de respuestas: pregunta_id → RespuestaLocal */
-  readonly respuestas = signal<Map<string, RespuestaLocal>>(new Map());
-
-  /** ID del registro sesion_alumnos (se crea al empezar el examen) */
+  readonly respuestas     = signal<Map<string, RespuestaLocal>>(new Map());
   readonly sesionAlumnoId = signal<string | null>(null);
-
-  /** Timestamp (ms) de cuando el alumno presionó "Comenzar" */
-  readonly tiempoInicio = signal<number | null>(null);
-
-  /** Resultado final (disponible después de enviar) */
+  readonly tiempoInicio   = signal<number | null>(null);
   readonly resultadoFinal = signal<ResultadoFinal | null>(null);
-
-  /** Estado de carga general */
-  readonly cargando = signal(false);
-
-  /** Mensaje de error actual */
-  readonly error = signal<string | null>(null);
+  readonly cargando       = signal(false);
+  readonly error          = signal<string | null>(null);
 
   // ── Computed ─────────────────────────────────────────────────────
 
-  /** Pregunta que se está mostrando actualmente */
   readonly preguntaActual = computed(() => {
     const lista = this.preguntas();
     const idx   = this.indicePreguntaActual();
     return lista[idx] ?? null;
   });
 
-  /** Total de preguntas del examen */
-  readonly totalPreguntas = computed(() => this.preguntas().length);
-
-  /** Número de pregunta visible para el usuario (1-based) */
+  readonly totalPreguntas        = computed(() => this.preguntas().length);
   readonly numeroPreguntaVisible = computed(() => this.indicePreguntaActual() + 1);
 
-  /** Respuesta guardada para la pregunta actual, si existe */
   readonly respuestaActual = computed(() => {
     const p = this.preguntaActual();
     if (!p) return null;
     return this.respuestas().get(p.id) ?? null;
   });
 
-  /** Cantidad de preguntas respondidas */
   readonly cantidadRespondidas = computed(() => this.respuestas().size);
 
-  /** true si ya respondió todas las preguntas */
   readonly todasRespondidas = computed(
     () => this.respuestas().size >= this.preguntas().length
   );
@@ -159,16 +119,12 @@ export class ExamenActivoService {
   /**
    * Carga los datos de la sesión a partir del código de acceso.
    * También carga la lista de alumnos del grupo para el dropdown.
-   *
-   * @param codigo Código de acceso ingresado por el alumno (ej: "MATH-101")
-   * @returns true si la sesión existe y está activa, false si no
    */
   async cargarSesionPorCodigo(codigo: string): Promise<boolean> {
     this.cargando.set(true);
     this.error.set(null);
 
-    // 1. Buscar la sesión por código
-    // NOTA: grupo_id NO está en sesiones — está en examenes → se obtiene via JOIN
+    // Bug 4: incluir iniciada_en en la query
     const { data: sesionData, error: sesionError } = await this.supabase.client
       .from('sesiones')
       .select(`
@@ -176,6 +132,7 @@ export class ExamenActivoService {
         examen_id,
         codigo_acceso,
         estado,
+        iniciada_en,
         examenes ( titulo, duracion_min, grupo_id )
       `)
       .eq('codigo_acceso', codigo.trim().toUpperCase())
@@ -187,7 +144,6 @@ export class ExamenActivoService {
       return false;
     }
 
-    // Solo permitir acceso a sesiones activas o en espera
     if (!['esperando', 'activa'].includes(sesionData.estado)) {
       this.error.set('Este examen ya ha finalizado.');
       this.cargando.set(false);
@@ -203,7 +159,6 @@ export class ExamenActivoService {
       return false;
     }
 
-    // Guardar datos de la sesión
     this.sesion.set({
       id:            sesionData.id,
       examen_id:     sesionData.examen_id,
@@ -211,9 +166,16 @@ export class ExamenActivoService {
       grupo_id:      grupoId,
       duracion_min:  examenJoin?.duracion_min ?? 30,
       codigo_acceso: sesionData.codigo_acceso,
+      estado:        sesionData.estado,
+      iniciada_en:   (sesionData as any).iniciada_en ?? null,  // Bug 4
     });
 
-    // 2. Cargar alumnos del grupo para el dropdown
+    // Bug 6: Realtime + polling de respaldo para detectar cambio de estado
+    this._suscribirseACambiosEstado(sesionData.id);
+    if (sesionData.estado === 'esperando') {
+      this._iniciarPolling(sesionData.id);
+    }
+
     const { data: alumnosData, error: alumnosError } = await this.supabase.client
       .from('alumnos')
       .select('id, nombre_completo')
@@ -232,11 +194,60 @@ export class ExamenActivoService {
   }
 
   /**
+   * Bug 1: Registra al alumno en la sala de espera con estado 'unido'.
+   * El profesor lo verá en el monitor. Se llama antes de iniciarExamen().
+   */
+  async unirseASala(alumno: AlumnoActivo, peerId = ''): Promise<boolean> {
+    const sesion = this.sesion();
+    if (!sesion) {
+      this.error.set('No hay sesión activa.');
+      return false;
+    }
+
+    this.cargando.set(true);
+    this.error.set(null);
+    this.alumno.set(alumno);
+
+    const { data, error } = await this.supabase.client
+      .from('sesion_alumnos')
+      .insert({
+        sesion_id: sesion.id,
+        alumno_id: alumno.id,
+        peer_id:   peerId || null,
+        estado:    'unido',
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        // Ya existía un registro (recargó la página), reutilizarlo
+        const { data: existente } = await this.supabase.client
+          .from('sesion_alumnos')
+          .select('id')
+          .eq('sesion_id', sesion.id)
+          .eq('alumno_id', alumno.id)
+          .single();
+
+        if (existente) {
+          this.sesionAlumnoId.set(existente.id);
+          this.cargando.set(false);
+          return true;
+        }
+      }
+      this.error.set('No se pudo unirse a la sala. Intenta de nuevo.');
+      console.error('[ExamenActivoService] unirseASala:', error);
+      this.cargando.set(false);
+      return false;
+    }
+
+    this.sesionAlumnoId.set(data.id);
+    this.cargando.set(false);
+    return true;
+  }
+
+  /**
    * Carga las preguntas del examen en orden aleatorio.
-   * Se llama DESPUÉS de que el alumno compartió su pantalla y presionó
-   * "Comenzar".
-   *
-   * @param examenId UUID del examen
    */
   async cargarPreguntas(examenId: string): Promise<boolean> {
     this.cargando.set(true);
@@ -258,10 +269,7 @@ export class ExamenActivoService {
       return false;
     }
 
-    // Mezclar orden de preguntas aleatoriamente (Fisher-Yates)
     const mezcladas = [...data].sort(() => Math.random() - 0.5);
-
-    // Para cada pregunta, mezclar también sus opciones
     const conOpcionesMezcladas: PreguntaActiva[] = mezcladas.map((p: any) => ({
       id:      p.id,
       texto:   p.texto,
@@ -276,11 +284,9 @@ export class ExamenActivoService {
   }
 
   /**
-   * Registra al alumno en la tabla sesion_alumnos e inicia el temporizador.
-   * Debe llamarse justo cuando el alumno presiona "Comenzar examen".
-   *
-   * @param alumno Alumno seleccionado del dropdown
-   * @param peerId ID de PeerJS para la conexión WebRTC (puede ser vacío en Paso 6)
+   * Bug 1: Inicia el examen formal del alumno.
+   * Si ya se unió (sesionAlumnoId está seteado), actualiza el registro existente.
+   * Si no se unió todavía, inserta uno nuevo.
    */
   async iniciarExamen(alumno: AlumnoActivo, peerId = ''): Promise<boolean> {
     const sesion = this.sesion();
@@ -293,68 +299,81 @@ export class ExamenActivoService {
     this.error.set(null);
     this.alumno.set(alumno);
 
-    // INSERT en sesion_alumnos (política anon permite)
-    const { data, error } = await this.supabase.client
-      .from('sesion_alumnos')
-      .insert({
-        sesion_id:   sesion.id,
-        alumno_id:   alumno.id,
-        peer_id:     peerId || null,
-        estado:      'en_progreso',
-        iniciado_en: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
+    const sesionAlumnoExistenteId = this.sesionAlumnoId();
 
-    if (error || !data) {
-      // Si ya existe un registro (alumno recargó la página), recuperarlo
-      if (error?.code === '23505') {
-        // UNIQUE constraint: ya estaba registrado, buscar el ID
-        const { data: existente } = await this.supabase.client
-          .from('sesion_alumnos')
-          .select('id')
-          .eq('sesion_id', sesion.id)
-          .eq('alumno_id', alumno.id)
-          .single();
+    if (sesionAlumnoExistenteId) {
+      // Bug 1: Ya se unió con 'unido' → actualizar a 'en_progreso'
+      const { error } = await this.supabase.client
+        .from('sesion_alumnos')
+        .update({
+          estado:      'en_progreso',
+          peer_id:     peerId || null,
+          iniciado_en: new Date().toISOString(),
+        })
+        .eq('id', sesionAlumnoExistenteId);
 
-        if (existente) {
-          this.sesionAlumnoId.set(existente.id);
-          this.tiempoInicio.set(Date.now());
-          await this.cargarPreguntas(sesion.examen_id);
-          this.cargando.set(false);
-          return true;
-        }
+      if (error) {
+        this.error.set('No se pudo iniciar el examen. Intenta de nuevo.');
+        console.error('[ExamenActivoService] iniciarExamen UPDATE:', error);
+        this.cargando.set(false);
+        return false;
       }
+    } else {
+      // Flujo sin sala de espera previa: INSERT directo
+      const { data, error } = await this.supabase.client
+        .from('sesion_alumnos')
+        .insert({
+          sesion_id:   sesion.id,
+          alumno_id:   alumno.id,
+          peer_id:     peerId || null,
+          estado:      'en_progreso',
+          iniciado_en: new Date().toISOString(),
+        })
+        .select('id')
+        .single();
 
-      this.error.set('No se pudo registrar en el examen. Intenta de nuevo.');
-      console.error('[ExamenActivoService] iniciarExamen:', error);
-      this.cargando.set(false);
-      return false;
+      if (error || !data) {
+        if (error?.code === '23505') {
+          const { data: existente } = await this.supabase.client
+            .from('sesion_alumnos')
+            .select('id')
+            .eq('sesion_id', sesion.id)
+            .eq('alumno_id', alumno.id)
+            .single();
+
+          if (existente) {
+            this.sesionAlumnoId.set(existente.id);
+            this.tiempoInicio.set(Date.now());
+            await this.cargarPreguntas(sesion.examen_id);
+            this.cargando.set(false);
+            return true;
+          }
+        }
+        this.error.set('No se pudo registrar en el examen. Intenta de nuevo.');
+        console.error('[ExamenActivoService] iniciarExamen INSERT:', error);
+        this.cargando.set(false);
+        return false;
+      }
+      this.sesionAlumnoId.set(data.id);
     }
 
-    this.sesionAlumnoId.set(data.id);
     this.tiempoInicio.set(Date.now());
+    this._detenerPolling(); // Ya en el examen, no necesitamos polling de espera
 
-    // Cargar preguntas una vez registrado
     const ok = await this.cargarPreguntas(sesion.examen_id);
     this.cargando.set(false);
     return ok;
   }
 
   /**
-   * Guarda la respuesta de la pregunta actual en el mapa local
-   * Y la persiste en Supabase inmediatamente (para no perder datos
-   * si el alumno cierra el navegador).
-   *
-   * @param opcionId         UUID de la opción seleccionada (null si abierta)
-   * @param respuestaAbierta Texto si es pregunta abierta (null si múltiple)
+   * Guarda la respuesta de la pregunta actual en mapa local y en Supabase.
    */
   async guardarRespuesta(
     opcionId: string | null,
     respuestaAbierta: string | null = null
   ): Promise<void> {
-    const pregunta      = this.preguntaActual();
-    const sesionAlumno  = this.sesionAlumnoId();
+    const pregunta     = this.preguntaActual();
+    const sesionAlumno = this.sesionAlumnoId();
 
     if (!pregunta || !sesionAlumno) return;
 
@@ -365,14 +384,12 @@ export class ExamenActivoService {
       respondido_en:     new Date().toISOString(),
     };
 
-    // Guardar en mapa local (para UI inmediata)
     this.respuestas.update((mapa) => {
       const nuevo = new Map(mapa);
       nuevo.set(pregunta.id, registro);
       return nuevo;
     });
 
-    // Persistir en Supabase (UPSERT por constraint uq_respuesta_por_pregunta)
     const { error } = await this.supabase.client
       .from('respuestas')
       .upsert(
@@ -382,7 +399,6 @@ export class ExamenActivoService {
           opcion_id:         opcionId,
           respuesta_abierta: respuestaAbierta,
           respondido_en:     registro.respondido_en,
-          // es_correcta se calcula aquí para opcion_multiple
           es_correcta: opcionId
             ? (pregunta.opciones.find((o) => o.id === opcionId)?.es_correcta ?? null)
             : null,
@@ -391,41 +407,28 @@ export class ExamenActivoService {
       );
 
     if (error) {
-      // No bloquear al alumno por un error de red en la persistencia
       console.warn('[ExamenActivoService] guardarRespuesta upsert:', error);
     }
   }
 
-  /** Avanza a la siguiente pregunta si existe */
   siguientePregunta(): void {
     const total = this.totalPreguntas();
     const actual = this.indicePreguntaActual();
-    if (actual < total - 1) {
-      this.indicePreguntaActual.set(actual + 1);
-    }
+    if (actual < total - 1) this.indicePreguntaActual.set(actual + 1);
   }
 
-  /** Retrocede a la pregunta anterior si existe */
   preguntaAnterior(): void {
     const actual = this.indicePreguntaActual();
-    if (actual > 0) {
-      this.indicePreguntaActual.set(actual - 1);
-    }
+    if (actual > 0) this.indicePreguntaActual.set(actual - 1);
   }
 
-  /** Navega directamente a la pregunta en el índice dado */
   irAPregunta(indice: number): void {
     const total = this.totalPreguntas();
-    if (indice >= 0 && indice < total) {
-      this.indicePreguntaActual.set(indice);
-    }
+    if (indice >= 0 && indice < total) this.indicePreguntaActual.set(indice);
   }
 
   /**
-   * Envía el examen: calcula el resultado, actualiza sesion_alumnos
-   * con las métricas finales y retorna el ResultadoFinal.
-   *
-   * @param tiempoRestanteSeg Segundos que quedaban en el temporizador
+   * Envía el examen: calcula el resultado y actualiza sesion_alumnos.
    */
   async enviarExamen(tiempoRestanteSeg: number): Promise<ResultadoFinal | null> {
     const sesionAlumnoId = this.sesionAlumnoId();
@@ -438,13 +441,11 @@ export class ExamenActivoService {
 
     this.cargando.set(true);
 
-    // ── Calcular métricas ───────────────────────────────────────
-
     const duracionTotalSeg = sesion.duracion_min * 60;
-    const tiempoUsadoSeg   = duracionTotalSeg - tiempoRestanteSeg;
+    const tiempoUsadoSeg   = Math.max(0, duracionTotalSeg - tiempoRestanteSeg);
 
-    let totalCorrectas   = 0;
-    let totalIncorrectas = 0;
+    let totalCorrectas    = 0;
+    let totalIncorrectas  = 0;
     let totalSinContestar = 0;
 
     for (const pregunta of preguntas) {
@@ -465,9 +466,9 @@ export class ExamenActivoService {
           totalIncorrectas++;
         }
       } else {
-        // Pregunta abierta: se cuenta como "cumplida" si escribió algo
+        // Pregunta abierta: requiere revisión manual del docente
         if (respuesta.respuesta_abierta?.trim()) {
-          totalCorrectas++; // se revisará manualmente por el maestro
+          totalCorrectas++; // Provisionalmente correcta hasta revisión
         } else {
           totalSinContestar++;
         }
@@ -475,32 +476,28 @@ export class ExamenActivoService {
     }
 
     const totalRespondidas = totalCorrectas + totalIncorrectas;
-    const porcentaje       = preguntas.length > 0
+    const porcentaje = preguntas.length > 0
       ? Math.round((totalCorrectas / preguntas.length) * 100)
       : 0;
     const segundosPromedio = totalRespondidas > 0
       ? Math.round(tiempoUsadoSeg / totalRespondidas)
       : 0;
 
-    // ── Actualizar sesion_alumnos ────────────────────────────────
-
     const { error: updateError } = await this.supabase.client
       .from('sesion_alumnos')
       .update({
-        estado:             'enviado',
-        enviado_en:         new Date().toISOString(),
-        tiempo_usado_min:   Math.ceil(tiempoUsadoSeg / 60),
-        porcentaje:         porcentaje,
-        total_correctas:    totalCorrectas,
-        total_incorrectas:  totalIncorrectas,
+        estado:            'enviado',
+        enviado_en:        new Date().toISOString(),
+        tiempo_usado_min:  Math.ceil(tiempoUsadoSeg / 60),
+        porcentaje:        porcentaje,
+        total_correctas:   totalCorrectas,
+        total_incorrectas: totalIncorrectas,
       })
       .eq('id', sesionAlumnoId);
 
     if (updateError) {
-      console.error('[ExamenActivoService] enviarExamen - update sesion_alumno:', updateError);
+      console.error('[ExamenActivoService] enviarExamen update:', updateError);
     }
-
-    // ── Construir resultado final ────────────────────────────────
 
     const resultado: ResultadoFinal = {
       porcentaje,
@@ -517,8 +514,9 @@ export class ExamenActivoService {
     return resultado;
   }
 
-  /** Limpia todo el estado (llamar al salir de la ruta) */
   reset(): void {
+    this._desuscribirseDeEstado();
+    this._detenerPolling();
     this.sesion.set(null);
     this.alumno.set(null);
     this.listaAlumnos.set([]);
@@ -529,5 +527,77 @@ export class ExamenActivoService {
     this.tiempoInicio.set(null);
     this.resultadoFinal.set(null);
     this.error.set(null);
+  }
+
+  // ── Realtime ──────────────────────────────────────────────────────
+
+  private _suscribirseACambiosEstado(sesionId: string): void {
+    this._desuscribirseDeEstado();
+
+    this._canalEstadoSesion = this.supabase.client
+      .channel(`sala-espera-${sesionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event:  'UPDATE',
+          schema: 'public',
+          table:  'sesiones',
+          filter: `id=eq.${sesionId}`,
+        },
+        (payload) => {
+          const nuevoEstado   = (payload.new as any)?.estado;
+          const nuevaIniciada = (payload.new as any)?.iniciada_en ?? null;
+          if (nuevoEstado) {
+            this.sesion.update((s) =>
+              s ? { ...s, estado: nuevoEstado, iniciada_en: nuevaIniciada ?? s.iniciada_en } : null
+            );
+            // Si ya está activa, detener el polling
+            if (nuevoEstado === 'activa') this._detenerPolling();
+          }
+        }
+      )
+      .subscribe();
+  }
+
+  private _desuscribirseDeEstado(): void {
+    if (this._canalEstadoSesion) {
+      this.supabase.client.removeChannel(this._canalEstadoSesion);
+      this._canalEstadoSesion = null;
+    }
+  }
+
+  /**
+   * Bug 6: Polling de respaldo cada 4 s cuando la sesión está 'esperando'.
+   * Garantiza que el estado se actualice aunque Realtime no esté configurado.
+   */
+  private _iniciarPolling(sesionId: string): void {
+    this._detenerPolling();
+    this._pollInterval = setInterval(async () => {
+      const sesionActual = this.sesion();
+      if (!sesionActual || sesionActual.estado !== 'esperando') {
+        this._detenerPolling();
+        return;
+      }
+
+      const { data } = await this.supabase.client
+        .from('sesiones')
+        .select('estado, iniciada_en')
+        .eq('id', sesionId)
+        .single();
+
+      if (data && data.estado !== sesionActual.estado) {
+        this.sesion.update((s) =>
+          s ? { ...s, estado: data.estado, iniciada_en: data.iniciada_en ?? s.iniciada_en } : null
+        );
+        if (data.estado === 'activa') this._detenerPolling();
+      }
+    }, 4000);
+  }
+
+  private _detenerPolling(): void {
+    if (this._pollInterval) {
+      clearInterval(this._pollInterval);
+      this._pollInterval = null;
+    }
   }
 }

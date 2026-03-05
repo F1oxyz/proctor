@@ -26,7 +26,7 @@ import {
   input,
   viewChildren,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ExamenesService, PreguntaPayload } from '../../../../services/examenes.service';
 import { GruposService } from '../../../../services/grupos.service';
@@ -41,6 +41,7 @@ import { LoadingSpinnerComponent } from '../../../../../../shared/components/loa
   providers: [ExamenesService, GruposService],
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     NavbarComponent,
     BtnComponent,
     LoadingSpinnerComponent,
@@ -343,7 +344,9 @@ export class ExamFormComponent implements OnInit {
 
   // ── Métodos ────────────────────────────────────────────
 
-  /** Agrega una nueva pregunta vacía al array */
+  /** Agrega una nueva pregunta vacía al array.
+   *  Inicia con 2 opciones (el mínimo); el usuario puede añadir hasta 4.
+   */
   agregarPregunta() {
     this.preguntas.update((lista) => [
       ...lista,
@@ -353,8 +356,6 @@ export class ExamFormComponent implements OnInit {
         opciones: [
           { texto: '', es_correcta: false, orden: 0 },
           { texto: '', es_correcta: false, orden: 1 },
-          { texto: '', es_correcta: false, orden: 2 },
-          { texto: '', es_correcta: false, orden: 3 },
         ],
       },
     ]);

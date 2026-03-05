@@ -1,23 +1,16 @@
 // =============================================================
-// features/docente/pages/grupos/components/tabla-alumnos/
 // tabla-alumnos.component.ts
 //
-// Tabla que muestra la lista de alumnos de un grupo seleccionado.
-// Incluye:
-//   - Búsqueda en tiempo real por nombre
-//   - Paginación simple (5 alumnos por página)
-//   - Avatar con iniciales del alumno
-//   - Estado visual (Activo por defecto)
-//   - Columna de acciones (placeholder para futuras acciones)
-//
-// Recibe los alumnos via input() desde GruposComponent.
-// No hace llamadas a Supabase directamente (responsabilidad del padre).
+// BUGS CORREGIDOS:
+//  - Bug 8: busqueda era string plano → convertido a signal()
+//  - Bug 9: botón Acciones sin dropdown → menú con opciones
 // =============================================================
 
 import {
   Component,
   ChangeDetectionStrategy,
   input,
+  output,
   signal,
   computed,
 } from '@angular/core';
@@ -26,7 +19,6 @@ import { Alumno } from '../../../../../../shared/models';
 import { InicialesPipe } from '../../../../../../shared/pipes/iniciales.pipe';
 import { EmptyStateComponent } from '../../../../../../shared/components/empty-state/empty-state.component';
 
-/** Cantidad de alumnos por página */
 const ALUMNOS_POR_PAGINA = 5;
 
 @Component({
@@ -36,19 +28,18 @@ const ALUMNOS_POR_PAGINA = 5;
   template: `
     <div class="flex flex-col gap-3">
 
-      <!-- ── Barra de búsqueda y acciones ─────────────── -->
+      <!-- ── Barra de búsqueda ─────────────── -->
       <div class="flex items-center justify-between gap-3">
-        <!-- Búsqueda -->
         <div class="relative flex-1 max-w-xs">
           <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
           </div>
           <input
             type="search"
-            [(ngModel)]="busqueda"
-            (ngModelChange)="paginaActual.set(1)"
+            [ngModel]="busqueda()"
+            (ngModelChange)="onBusquedaChange($event)"
             placeholder="Buscar estudiante o ID..."
             class="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg
                    text-slate-800 placeholder-slate-400 bg-white
@@ -57,8 +48,6 @@ const ALUMNOS_POR_PAGINA = 5;
             aria-label="Buscar alumno"
           />
         </div>
-
-        <!-- Contador de resultados -->
         <span class="text-xs text-slate-400 shrink-0">
           {{ alumnosFiltrados().length }} resultado{{ alumnosFiltrados().length === 1 ? '' : 's' }}
         </span>
@@ -76,9 +65,6 @@ const ALUMNOS_POR_PAGINA = 5;
                 <th class="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide hidden md:table-cell">
                   Grupo Asignado
                 </th>
-                <th class="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">
-                  Estado
-                </th>
                 <th class="px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide text-right">
                   Acciones
                 </th>
@@ -91,7 +77,6 @@ const ALUMNOS_POR_PAGINA = 5;
                   <!-- Avatar + Nombre -->
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-3">
-                      <!-- Avatar con iniciales -->
                       <div
                         class="w-8 h-8 rounded-full flex items-center justify-center
                                text-xs font-semibold text-white shrink-0"
@@ -104,7 +89,7 @@ const ALUMNOS_POR_PAGINA = 5;
                     </div>
                   </td>
 
-                  <!-- Grupo (nombre del grupo viene del padre via grupoNombre input) -->
+                  <!-- Grupo -->
                   <td class="px-4 py-3 hidden md:table-cell">
                     @if (grupoNombre()) {
                       <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs
@@ -114,25 +99,54 @@ const ALUMNOS_POR_PAGINA = 5;
                     }
                   </td>
 
-                  <!-- Estado -->
-                  <td class="px-4 py-3">
-                    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
-                      Activo
-                    </span>
-                  </td>
-
-                  <!-- Acciones -->
+                  <!-- Acciones: dropdown con opciones -->
                   <td class="px-4 py-3 text-right">
-                    <button
-                      class="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-gray-100 transition-colors cursor-pointer"
-                      aria-label="Más opciones"
-                      title="Más opciones"
-                    >
-                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
-                      </svg>
-                    </button>
+                    <div class="relative inline-block">
+                      <button
+                        type="button"
+                        (click)="toggleMenu(alumno.id)"
+                        class="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                        aria-label="Más opciones"
+                        title="Más opciones"
+                      >
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                        </svg>
+                      </button>
+
+                      @if (menuAbiertoId() === alumno.id) {
+                        <!-- Overlay para cerrar al hacer clic afuera -->
+                        <div
+                          class="fixed inset-0 z-10"
+                          (click)="cerrarMenu()"
+                        ></div>
+
+                        <!-- Dropdown -->
+                        <div class="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 overflow-hidden">
+                          <button
+                            type="button"
+                            (click)="onEditarAlumno(alumno); cerrarMenu()"
+                            class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                          >
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Editar nombre
+                          </button>
+                          <div class="border-t border-slate-100 my-1"></div>
+                          <button
+                            type="button"
+                            (click)="onEliminarAlumno(alumno); cerrarMenu()"
+                            class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Eliminar alumno
+                          </button>
+                        </div>
+                      }
+                    </div>
                   </td>
 
                 </tr>
@@ -147,22 +161,17 @@ const ALUMNOS_POR_PAGINA = 5;
             <span class="text-xs text-slate-400">
               Mostrando {{ rangoInicio() }} a {{ rangoFin() }} de {{ alumnosFiltrados().length }} resultados
             </span>
-
             <div class="flex items-center gap-1">
-              <!-- Anterior -->
               <button
                 (click)="cambiarPagina(paginaActual() - 1)"
                 [disabled]="paginaActual() === 1"
-                class="p-1.5 rounded-md text-slate-500 hover:bg-gray-100 disabled:opacity-30
-                       disabled:cursor-not-allowed transition-colors cursor-pointer"
+                class="p-1.5 rounded-md text-slate-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 aria-label="Página anterior"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
                 </svg>
               </button>
-
-              <!-- Números de página -->
               @for (pagina of paginasVisibles(); track pagina) {
                 <button
                   (click)="cambiarPagina(pagina)"
@@ -176,16 +185,13 @@ const ALUMNOS_POR_PAGINA = 5;
                   {{ pagina }}
                 </button>
               }
-
-              <!-- Siguiente -->
               <button
                 (click)="cambiarPagina(paginaActual() + 1)"
                 [disabled]="paginaActual() === totalPaginas()"
-                class="p-1.5 rounded-md text-slate-500 hover:bg-gray-100 disabled:opacity-30
-                       disabled:cursor-not-allowed transition-colors cursor-pointer"
+                class="p-1.5 rounded-md text-slate-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 aria-label="Página siguiente"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                 </svg>
               </button>
@@ -194,11 +200,10 @@ const ALUMNOS_POR_PAGINA = 5;
         }
 
       } @else {
-        <!-- Estado vacío cuando no hay resultados de búsqueda -->
         <app-empty-state
           icono="alumnos"
           titulo="Sin resultados"
-          [mensaje]="busqueda ? 'No se encontró ningún alumno con ese nombre.' : 'Este grupo no tiene alumnos registrados.'"
+          [mensaje]="busqueda() ? 'No se encontró ningún alumno con ese nombre.' : 'Este grupo no tiene alumnos registrados.'"
         />
       }
 
@@ -207,59 +212,52 @@ const ALUMNOS_POR_PAGINA = 5;
 })
 export class TablaAlumnosComponent {
   // ── Inputs ─────────────────────────────────────────────
-
-  /** Lista de alumnos a mostrar (viene de GruposComponent) */
-  alumnos = input.required<Alumno[]>();
-
-  /** Nombre del grupo para mostrar en la columna "Grupo Asignado" */
+  alumnos    = input.required<Alumno[]>();
   grupoNombre = input<string>('');
 
+  // ── Outputs ────────────────────────────────────────────
+  editarAlumno   = output<Alumno>();
+  eliminarAlumno = output<Alumno>();
+
   // ── Estado interno ─────────────────────────────────────
-
-  /** Texto de búsqueda en tiempo real */
-  busqueda = '';
-
-  /** Página actual de la paginación (base 1) */
-  paginaActual = signal(1);
+  // Bug 8: convertido a signal para que computed() lo rastree
+  readonly busqueda = signal('');
+  readonly paginaActual = signal(1);
+  /** ID del alumno cuyo menú está abierto, null si ninguno */
+  readonly menuAbiertoId = signal<string | null>(null);
 
   // ── Computed ───────────────────────────────────────────
 
-  /** Alumnos filtrados por el texto de búsqueda (case-insensitive) */
-  alumnosFiltrados = computed(() => {
-    const q = this.busqueda.toLowerCase().trim();
+  readonly alumnosFiltrados = computed(() => {
+    const q = this.busqueda().toLowerCase().trim();
     if (!q) return this.alumnos();
     return this.alumnos().filter((a) =>
       a.nombre_completo.toLowerCase().includes(q)
     );
   });
 
-  /** Total de páginas necesarias */
-  totalPaginas = computed(() =>
+  readonly totalPaginas = computed(() =>
     Math.ceil(this.alumnosFiltrados().length / ALUMNOS_POR_PAGINA)
   );
 
-  /** Alumnos de la página actual */
-  alumnosPagina = computed(() => {
+  readonly alumnosPagina = computed(() => {
     const inicio = (this.paginaActual() - 1) * ALUMNOS_POR_PAGINA;
     return this.alumnosFiltrados().slice(inicio, inicio + ALUMNOS_POR_PAGINA);
   });
 
-  /** Números de página a mostrar en el paginador */
-  paginasVisibles = computed(() => {
+  readonly paginasVisibles = computed(() => {
     const total = this.totalPaginas();
     return Array.from({ length: total }, (_, i) => i + 1);
   });
 
-  /** Índice del primer alumno en la página actual (para el texto "X a Y de Z") */
-  rangoInicio = computed(() =>
+  readonly rangoInicio = computed(() =>
     Math.min(
       (this.paginaActual() - 1) * ALUMNOS_POR_PAGINA + 1,
       this.alumnosFiltrados().length
     )
   );
 
-  /** Índice del último alumno en la página actual */
-  rangoFin = computed(() =>
+  readonly rangoFin = computed(() =>
     Math.min(
       this.paginaActual() * ALUMNOS_POR_PAGINA,
       this.alumnosFiltrados().length
@@ -268,28 +266,38 @@ export class TablaAlumnosComponent {
 
   // ── Métodos ────────────────────────────────────────────
 
-  /** Cambia la página activa (con validación de límites) */
+  onBusquedaChange(valor: string): void {
+    this.busqueda.set(valor);
+    this.paginaActual.set(1);
+  }
+
   cambiarPagina(pagina: number) {
     if (pagina >= 1 && pagina <= this.totalPaginas()) {
       this.paginaActual.set(pagina);
     }
   }
 
-  /**
-   * Genera un color de avatar consistente basado en el nombre.
-   * Usa un hash simple del nombre para elegir entre 8 colores predefinidos.
-   * El mismo nombre siempre genera el mismo color (determinístico).
-   */
+  // Bug 9: manejo del menú de acciones
+  toggleMenu(alumnoId: string): void {
+    this.menuAbiertoId.update((id) => (id === alumnoId ? null : alumnoId));
+  }
+
+  cerrarMenu(): void {
+    this.menuAbiertoId.set(null);
+  }
+
+  onEditarAlumno(alumno: Alumno): void {
+    this.editarAlumno.emit(alumno);
+  }
+
+  onEliminarAlumno(alumno: Alumno): void {
+    this.eliminarAlumno.emit(alumno);
+  }
+
   colorAvatar(nombre: string): string {
     const colores = [
-      '#3b82f6', // blue-500
-      '#8b5cf6', // violet-500
-      '#10b981', // emerald-500
-      '#f59e0b', // amber-500
-      '#ef4444', // red-500
-      '#06b6d4', // cyan-500
-      '#ec4899', // pink-500
-      '#84cc16', // lime-500
+      '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b',
+      '#ef4444', '#06b6d4', '#ec4899', '#84cc16',
     ];
     let hash = 0;
     for (let i = 0; i < nombre.length; i++) {

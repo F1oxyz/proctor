@@ -1,14 +1,10 @@
 /**
  * temporizador.component.ts
  * ─────────────────────────────────────────────────────────────────
- * Muestra la cuenta regresiva del tiempo del examen.
- * Se torna rojo cuando quedan menos de 2 minutos.
- *
- * ARQUITECTURA:
- *  - Componente dumb: recibe `segundosRestantes` como input
- *  - Emite `tiempoAgotado` cuando llega a 0
- *  - No maneja el intervalo (eso lo hace ExamenComponent)
- *  - OnPush: solo re-renderiza cuando cambia el input
+ * BUGS CORREGIDOS:
+ *  - Bug 3: El efecto emitía tiempoAgotado al inicializar porque el input
+ *           empieza en 0 antes de que ngOnInit del padre lo setee.
+ *           Ahora solo emite DESPUÉS de que el contador haya tenido un valor > 0.
  * ─────────────────────────────────────────────────────────────────
  */
 
@@ -55,17 +51,14 @@ import {
 export class TemporizadorComponent {
   // ── Inputs ───────────────────────────────────────────────────────
 
-  /** Segundos restantes del examen (viene del ExamenComponent) */
   segundosRestantes = input.required<number>();
 
   // ── Outputs ──────────────────────────────────────────────────────
 
-  /** Emite cuando el contador llega exactamente a 0 */
   tiempoAgotado = output<void>();
 
   // ── Computed ─────────────────────────────────────────────────────
 
-  /** Formatea segundos a "mm:ss" para mostrar en pantalla */
   readonly tiempoFormateado = computed(() => {
     const s = Math.max(0, this.segundosRestantes());
     const min = Math.floor(s / 60).toString().padStart(2, '0');
@@ -73,16 +66,21 @@ export class TemporizadorComponent {
     return `${min}:${sec}`;
   });
 
+  readonly urgente = computed(
+    () => this.segundosRestantes() > 0 && this.segundosRestantes() <= 120
+  );
+
   /**
-   * true cuando quedan menos de 2 minutos (120 segundos).
-   * Cambia el color a rojo para alertar al alumno.
+   * Bug 3: solo emite tiempoAgotado después de que el contador haya
+   * tenido un valor positivo (evita disparo espurio al inicializar con 0).
    */
-  readonly urgente = computed(() => this.segundosRestantes() <= 120);
+  private haEmpezado = false;
 
   constructor() {
-    // Emitir el evento cuando el tiempo llega a 0
     effect(() => {
-      if (this.segundosRestantes() <= 0) {
+      const s = this.segundosRestantes();
+      if (s > 0) this.haEmpezado = true;
+      if (this.haEmpezado && s <= 0) {
         this.tiempoAgotado.emit();
       }
     });

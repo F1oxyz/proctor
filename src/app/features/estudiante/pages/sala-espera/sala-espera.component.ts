@@ -1,10 +1,13 @@
 /**
- * sala-espera.component.ts  ← VERSIÓN FINAL (Paso 5 integrado)
+ * sala-espera.component.ts
  * ─────────────────────────────────────────────────────────────────
- * CAMBIOS RESPECTO AL PASO 6:
- *  - onPantallaCompartida() ahora llama a PeerService.conectarAlDocente()
- *  - iniciarExamen() pasa el peerId al ExamenActivoService
- *  - Se inyecta PeerService desde core
+ * BUGS CORREGIDOS:
+ *  - Bug 1: Flujo de 2 pasos: "Unirse a la sala" → "Comenzar Examen"
+ *           El alumno se registra con 'unido' primero (visible en monitor),
+ *           luego inicia con 'en_progreso' cuando el profesor activa el examen.
+ *  - Bug 3 (anterior): alumnoIdSeleccionado como signal
+ *  - Bug 7 (anterior): espera hasta que profesor inicie
+ *  - Bug 3 (anterior): botón Regresar en error
  * ─────────────────────────────────────────────────────────────────
  */
 
@@ -28,8 +31,6 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
   selector: 'app-sala-espera',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, ScreenSharePromptComponent],
-  // ExamenActivoService viene del ExamenShellComponent (padre de ruta)
-  // NO se declara providers aquí — se destruiría al navegar a /evaluacion
   template: `
     <div class="min-h-screen bg-gray-100 flex flex-col">
 
@@ -42,19 +43,6 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
             </svg>
           </div>
           <span class="text-sm font-semibold text-slate-800">Proctor</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <button type="button" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-md" aria-label="Notificaciones">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-          </button>
-          <button type="button" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-md" aria-label="Configuración">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
         </div>
       </header>
 
@@ -71,6 +59,7 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
           </div>
         }
 
+        <!-- ── Error / Código inválido ── -->
         @else if (servicio.error() && !sesionCargada()) {
           <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-sm w-full text-center">
             <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -79,13 +68,21 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
               </svg>
             </div>
             <h2 class="text-base font-bold text-slate-800 mb-2">Código inválido</h2>
-            <p class="text-sm text-slate-500">{{ servicio.error() }}</p>
+            <p class="text-sm text-slate-500 mb-5">{{ servicio.error() }}</p>
+            <button
+              type="button"
+              (click)="router.navigate(['/'])"
+              class="w-full px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+            >
+              Regresar al inicio
+            </button>
           </div>
         }
 
         @else if (sesionCargada()) {
           <div class="bg-white rounded-2xl shadow-sm border border-slate-200 w-full max-w-md p-8">
 
+            <!-- Encabezado -->
             <div class="flex flex-col items-center mb-6">
               <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -98,17 +95,52 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
               </p>
             </div>
 
-            <div class="flex gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg mb-5">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p class="text-xs text-blue-700 leading-relaxed">
-                <strong>Instrucciones:</strong> Por favor selecciona tu nombre de la lista
-                oficial y comparte tu pantalla completa para habilitar el botón de inicio.
-              </p>
-            </div>
+            <!-- Banner de estado de la sesión -->
+            @if (yaUnido()) {
+              <!-- Ya unido: mostrar estado -->
+              @if (sesionEsperando()) {
+                <div class="flex gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p class="text-xs text-amber-700 leading-relaxed">
+                    <strong>✓ Estás en la sala.</strong> El examen comenzará cuando el profesor lo inicie desde su panel.
+                  </p>
+                </div>
+              } @else {
+                <div class="flex gap-3 p-3 bg-green-50 border border-green-200 rounded-lg mb-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-green-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p class="text-xs text-green-700 leading-relaxed">
+                    <strong>¡El examen ha iniciado!</strong> Cuando estés listo, haz clic en "Comenzar Examen".
+                  </p>
+                </div>
+              }
+            } @else {
+              <!-- No unido aún -->
+              @if (sesionEsperando()) {
+                <div class="flex gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg mb-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p class="text-xs text-amber-700 leading-relaxed">
+                    Selecciona tu nombre y comparte tu pantalla para unirte a la sala de espera.
+                  </p>
+                </div>
+              } @else {
+                <div class="flex gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg mb-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p class="text-xs text-blue-700 leading-relaxed">
+                    <strong>¡Examen iniciado!</strong> Selecciona tu nombre y comparte tu pantalla para comenzar.
+                  </p>
+                </div>
+              }
+            }
 
-            <!-- Dropdown de nombre -->
+            <!-- Dropdown de nombre (deshabilitado si ya se unió) -->
             <div class="mb-5">
               <label for="select-alumno" class="block text-sm font-medium text-slate-700 mb-1.5">
                 Seleccionar Estudiante
@@ -116,8 +148,10 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
               <div class="relative">
                 <select
                   id="select-alumno"
-                  [(ngModel)]="alumnoIdSeleccionado"
-                  class="w-full px-3 py-3 text-sm text-slate-800 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                  [ngModel]="alumnoIdSeleccionado()"
+                  (ngModelChange)="alumnoIdSeleccionado.set($event)"
+                  [disabled]="yaUnido()"
+                  class="w-full px-3 py-3 text-sm text-slate-800 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:bg-slate-50 disabled:text-slate-500"
                 >
                   <option value="">Elige tu nombre de la lista...</option>
                   @for (alumno of servicio.listaAlumnos(); track alumno.id) {
@@ -130,8 +164,8 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
               </div>
             </div>
 
-            <!-- Compartir pantalla -->
-            @if (alumnoIdSeleccionado) {
+            <!-- Compartir pantalla (solo si seleccionó nombre y no se ha unido aún) -->
+            @if (alumnoIdSeleccionado() && !yaUnido()) {
               <div class="mb-5">
                 <app-screen-share-prompt
                   [nombreAlumno]="nombreAlumnoSeleccionado()"
@@ -140,42 +174,85 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
                   (pantallaCancelada)="onPantallaCancelada()"
                 />
               </div>
-            } @else {
+            }
+
+            @if (!alumnoIdSeleccionado() && !yaUnido()) {
               <div class="mb-5">
                 <button type="button" disabled
                   class="w-full flex items-center justify-center gap-3 px-5 py-3.5 text-sm font-semibold text-slate-400 bg-slate-100 rounded-xl cursor-not-allowed">
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  Compartir Pantalla para Iniciar
+                  Compartir Pantalla
                 </button>
                 <p class="text-center text-xs text-slate-400 mt-2">
-                  Este paso es obligatorio para verificar la integridad del examen.
+                  Primero selecciona tu nombre de la lista.
                 </p>
               </div>
             }
 
-            <!-- Botón Comenzar -->
-            <button
-              type="button"
-              (click)="comenzarExamen()"
-              [disabled]="!puedeComenzar() || iniciando()"
-              class="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white rounded-xl transition-colors mb-4"
-              [class.bg-blue-600]="puedeComenzar() && !iniciando()"
-              [class.hover:bg-blue-700]="puedeComenzar() && !iniciando()"
-              [class.bg-slate-300]="!puedeComenzar() || iniciando()"
-              [class.cursor-not-allowed]="!puedeComenzar() || iniciando()"
-            >
-              @if (iniciando()) {
-                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            <!-- ── Botón de acción principal ── -->
+
+            @if (!yaUnido()) {
+              <!-- PASO 1: Unirse a la sala -->
+              <button
+                type="button"
+                (click)="unirseASala()"
+                [disabled]="!puedeUnirse() || uniendose()"
+                class="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white rounded-xl transition-colors mb-4"
+                [class.bg-blue-600]="puedeUnirse() && !uniendose()"
+                [class.hover:bg-blue-700]="puedeUnirse() && !uniendose()"
+                [class.bg-slate-300]="!puedeUnirse() || uniendose()"
+                [class.cursor-not-allowed]="!puedeUnirse() || uniendose()"
+              >
+                @if (uniendose()) {
+                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  Uniéndose...
+                } @else {
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  Unirse a la sala
+                }
+              </button>
+            } @else if (sesionEsperando()) {
+              <!-- PASO 2a: Esperando al profesor -->
+              <button
+                type="button"
+                disabled
+                class="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-slate-500 bg-slate-100 rounded-xl cursor-not-allowed mb-4"
+              >
+                <svg class="w-4 h-4 animate-pulse" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Iniciando...
-              } @else {
-                Comenzar Examen
-              }
-            </button>
+                Esperando al profesor...
+              </button>
+            } @else {
+              <!-- PASO 2b: Examen activo → Comenzar -->
+              <button
+                type="button"
+                (click)="comenzarExamen()"
+                [disabled]="iniciando()"
+                class="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-xl transition-colors mb-4"
+              >
+                @if (iniciando()) {
+                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  Iniciando...
+                } @else {
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Comenzar Examen
+                }
+              </button>
+            }
 
             <div class="flex items-center justify-between text-xs text-slate-400">
               <span class="flex items-center gap-1">
@@ -196,26 +273,38 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
 })
 export class SalaEsperaComponent implements OnInit, OnDestroy {
   // ── Dependencias ────────────────────────────────────────────────
-  readonly servicio  = inject(ExamenActivoService);
-  private readonly peerService = inject(PeerService);   // ← NUEVO en Paso 5
+  readonly servicio    = inject(ExamenActivoService);
+  private readonly peerService = inject(PeerService);
   private readonly route  = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  readonly router = inject(Router);
 
   // ── Estado ───────────────────────────────────────────────────────
-  alumnoIdSeleccionado = '';
-  readonly pantallaCompartida = signal(false);
+
+  readonly alumnoIdSeleccionado = signal('');
+  readonly pantallaCompartida   = signal(false);
   private streamPantalla: MediaStream | null = null;
-  readonly iniciando = signal(false);
+
+  /** Bug 1: true cuando el alumno ya insertó sesion_alumnos con 'unido' */
+  readonly yaUnido    = signal(false);
+  readonly uniendose  = signal(false);
+  readonly iniciando  = signal(false);
   readonly sesionCargada = signal(false);
 
   // ── Computed ─────────────────────────────────────────────────────
+
   readonly nombreAlumnoSeleccionado = computed(() =>
-    this.servicio.listaAlumnos().find((a) => a.id === this.alumnoIdSeleccionado)
+    this.servicio.listaAlumnos().find((a) => a.id === this.alumnoIdSeleccionado())
       ?.nombre_completo ?? ''
   );
 
-  readonly puedeComenzar = computed(
-    () => !!this.alumnoIdSeleccionado && this.pantallaCompartida()
+  /** true cuando la sesión está en 'esperando' */
+  readonly sesionEsperando = computed(
+    () => this.servicio.sesion()?.estado === 'esperando'
+  );
+
+  /** Bug 1: puede unirse si seleccionó nombre + compartió pantalla + no está unido */
+  readonly puedeUnirse = computed(
+    () => !!this.alumnoIdSeleccionado() && this.pantallaCompartida() && !this.yaUnido()
   );
 
   // ── Ciclo de vida ─────────────────────────────────────────────
@@ -236,31 +325,20 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
 
   // ── Handlers ─────────────────────────────────────────────────────
 
-  /**
-   * Recibe el MediaStream → conecta al docente via PeerJS.
-   * El peerId del alumno se guardará en sesion_alumnos al iniciarExamen().
-   */
   async onPantallaCompartida(stream: MediaStream): Promise<void> {
     this.streamPantalla = stream;
     this.pantallaCompartida.set(true);
 
-    // ── INTEGRACIÓN PASO 5 ──────────────────────────────────────
+    // Conectar PeerJS al docente (para que vea la pantalla)
     const sesion   = this.servicio.sesion();
-    const alumnoId = this.alumnoIdSeleccionado;
+    const alumnoId = this.alumnoIdSeleccionado();
 
     if (sesion && alumnoId) {
-      // Conectar al docente sin bloquear el flujo del alumno.
-      // El peerId devuelto se usará en iniciarExamen().
       this.peerService.conectarAlDocente(stream, alumnoId, sesion.id)
         .then((peerId) => {
-          if (peerId) {
-            console.log(`[SalaEspera] PeerJS conectado. PeerId: ${peerId}`);
-          }
+          if (peerId) console.log(`[SalaEspera] PeerJS conectado: ${peerId}`);
         })
-        .catch((err) => {
-          // Fallo de WebRTC no bloquea el examen
-          console.warn('[SalaEspera] PeerJS error (no crítico):', err);
-        });
+        .catch((err) => console.warn('[SalaEspera] PeerJS error (no crítico):', err));
     }
   }
 
@@ -269,17 +347,44 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
     this.pantallaCompartida.set(false);
   }
 
-  async comenzarExamen(): Promise<void> {
-    if (!this.puedeComenzar() || this.iniciando()) return;
+  /**
+   * Bug 1: Paso 1 — unirse a la sala con estado 'unido'.
+   * El monitor del profesor lo verá inmediatamente.
+   */
+  async unirseASala(): Promise<void> {
+    if (!this.puedeUnirse() || this.uniendose()) return;
 
     const alumno = this.servicio.listaAlumnos().find(
-      (a) => a.id === this.alumnoIdSeleccionado
+      (a) => a.id === this.alumnoIdSeleccionado()
+    );
+    if (!alumno) return;
+
+    this.uniendose.set(true);
+
+    const peerId = this.peerService.miPeerId() ?? '';
+    const ok = await this.servicio.unirseASala(alumno, peerId);
+
+    this.uniendose.set(false);
+
+    if (ok) {
+      this.yaUnido.set(true);
+    }
+  }
+
+  /**
+   * Bug 1: Paso 2 — comenzar el examen (actualiza de 'unido' a 'en_progreso').
+   * Solo disponible cuando la sesión está 'activa'.
+   */
+  async comenzarExamen(): Promise<void> {
+    if (this.sesionEsperando() || this.iniciando()) return;
+
+    const alumno = this.servicio.listaAlumnos().find(
+      (a) => a.id === this.alumnoIdSeleccionado()
     );
     if (!alumno) return;
 
     this.iniciando.set(true);
 
-    // Pasar el peerId de PeerJS al servicio para guardarlo en sesion_alumnos
     const peerId = this.peerService.miPeerId() ?? '';
     const ok = await this.servicio.iniciarExamen(alumno, peerId);
 
@@ -287,7 +392,6 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
 
     if (ok) {
       const codigo = this.route.snapshot.paramMap.get('codigo');
-      // Marcar en sessionStorage para que el sessionGuard permita /evaluacion
       sessionStorage.setItem(`proctor_alumno_${codigo}`, alumno.id);
       this.router.navigate(['/examen', codigo, 'evaluacion']);
     }

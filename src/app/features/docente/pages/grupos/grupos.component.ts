@@ -28,6 +28,7 @@ import {
   OnInit,
   viewChild,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { GruposService } from '../../services/grupos.service';
 import { ModalCrearGrupoComponent } from './components/modal-crear-grupo/modal-crear-grupo.component';
 import { TablaAlumnosComponent } from './components/tabla-alumnos/tabla-alumnos.component';
@@ -36,6 +37,7 @@ import { BtnComponent } from '../../../../shared/components/btn/btn.component';
 import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state.component';
 import { LoadingSpinnerComponent } from '../../../../shared/components/loading-spinner/loading-spinner.component';
 import { Alumno, GrupoConStats } from '../../../../shared/models';
+
 
 @Component({
   selector: 'app-grupos',
@@ -50,6 +52,7 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
     LoadingSpinnerComponent,
     ModalCrearGrupoComponent,
     TablaAlumnosComponent,
+    FormsModule,
   ],
   template: `
     <div class="min-h-screen bg-gray-50 flex flex-col">
@@ -81,7 +84,7 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
         </div>
 
         <!-- ── Stats cards ───────────────────────────── -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
 
           <!-- Total Estudiantes -->
           <div class="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4">
@@ -93,19 +96,6 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
             <div>
               <p class="text-xs text-slate-500">Total Estudiantes</p>
               <p class="text-2xl font-semibold text-slate-800">{{ gruposService.totalAlumnos() }}</p>
-            </div>
-          </div>
-
-          <!-- Exámenes Activos (placeholder — se llenará en Paso 4) -->
-          <div class="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4">
-            <div class="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-              <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </div>
-            <div>
-              <p class="text-xs text-slate-500">Exámenes Activos</p>
-              <p class="text-2xl font-semibold text-slate-800">—</p>
             </div>
           </div>
 
@@ -256,6 +246,8 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
                         <app-tabla-alumnos
                           [alumnos]="gruposService.alumnosGrupoActivo()"
                           [grupoNombre]="grupo.nombre"
+                          (editarAlumno)="onEditarAlumno($event)"
+                          (eliminarAlumno)="confirmarEliminarAlumno($event)"
                         />
                       }
                     </div>
@@ -275,7 +267,7 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
         (grupoCreado)="onGrupoCreado()"
       />
 
-      <!-- ── Confirmación de eliminación ──────────────── -->
+      <!-- ── Confirmación de eliminación de GRUPO ─────── -->
       @if (grupoAEliminar()) {
         <div
           class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
@@ -314,6 +306,92 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
         </div>
       }
 
+      <!-- ── Modal editar nombre de ALUMNO ─────────────── -->
+      @if (alumnoAEditar()) {
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dialogo-editar-alumno"
+        >
+          <div class="bg-white rounded-xl border border-gray-100 shadow-xl p-6 max-w-sm w-full">
+            <h3 id="dialogo-editar-alumno" class="text-base font-semibold text-slate-800 mb-1">
+              Editar nombre
+            </h3>
+            <p class="text-sm text-slate-500 mb-4">Ingresa el nuevo nombre del alumno.</p>
+            <input
+              type="text"
+              [(ngModel)]="nombreEditado"
+              placeholder="Nombre completo"
+              class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg
+                     text-slate-800 placeholder-slate-400
+                     focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                     transition-colors mb-4"
+              (keydown.enter)="guardarNombreAlumno()"
+            />
+            @if (errorAlumno()) {
+              <p class="text-xs text-red-500 mb-3">{{ errorAlumno() }}</p>
+            }
+            <div class="flex justify-end gap-3">
+              <button
+                (click)="cerrarModalEditarAlumno()"
+                class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800
+                       hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <app-btn
+                variante="primary"
+                [loading]="guardandoAlumno()"
+                (clicked)="guardarNombreAlumno()"
+              >
+                Guardar
+              </app-btn>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ── Confirmación de eliminación de ALUMNO ─────── -->
+      @if (alumnoAEliminar()) {
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dialogo-eliminar-alumno"
+        >
+          <div class="bg-white rounded-xl border border-gray-100 shadow-xl p-6 max-w-sm w-full">
+            <h3 id="dialogo-eliminar-alumno" class="text-base font-semibold text-slate-800 mb-1">
+              Eliminar alumno
+            </h3>
+            <p class="text-sm text-slate-500 mb-5">
+              ¿Estás seguro de eliminar a
+              <strong class="text-slate-700">{{ alumnoAEliminar()!.nombre_completo }}</strong>?
+              Esta acción no se puede deshacer.
+            </p>
+            @if (errorAlumno()) {
+              <p class="text-xs text-red-500 mb-3">{{ errorAlumno() }}</p>
+            }
+            <div class="flex justify-end gap-3">
+              <button
+                (click)="alumnoAEliminar.set(null)"
+                class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800
+                       hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <app-btn
+                variante="danger"
+                [loading]="guardandoAlumno()"
+                (clicked)="ejecutarEliminarAlumno()"
+              >
+                Eliminar
+              </app-btn>
+            </div>
+          </div>
+        </div>
+      }
+
     </div>
   `,
 })
@@ -335,6 +413,23 @@ export class GruposComponent implements OnInit {
 
   /** Grupo pendiente de eliminar (muestra diálogo de confirmación) */
   grupoAEliminar = signal<GrupoConStats | null>(null);
+
+  // ── Estado para acciones sobre alumnos individuales ────
+
+  /** Alumno en edición de nombre */
+  alumnoAEditar = signal<Alumno | null>(null);
+
+  /** Alumno pendiente de eliminar */
+  alumnoAEliminar = signal<Alumno | null>(null);
+
+  /** Nombre temporal en el input de edición */
+  nombreEditado = '';
+
+  /** Indica si hay una operación sobre un alumno en curso */
+  guardandoAlumno = signal(false);
+
+  /** Error de operación sobre un alumno */
+  errorAlumno = signal<string | null>(null);
 
   // ── Lifecycle ──────────────────────────────────────────
 
@@ -397,5 +492,69 @@ export class GruposComponent implements OnInit {
   onGrupoCreado() {
     // El servicio ya recargó los grupos internamente.
     // Aquí se puede agregar feedback adicional si se requiere (toast, etc.)
+  }
+
+  // ── Acciones sobre alumnos individuales ────────────────
+
+  /** Abre el modal de edición de nombre del alumno */
+  onEditarAlumno(alumno: Alumno): void {
+    this.alumnoAEditar.set(alumno);
+    this.nombreEditado = alumno.nombre_completo;
+    this.errorAlumno.set(null);
+  }
+
+  /** Cierra el modal de edición sin guardar */
+  cerrarModalEditarAlumno(): void {
+    this.alumnoAEditar.set(null);
+    this.errorAlumno.set(null);
+  }
+
+  /** Guarda el nuevo nombre del alumno en Supabase */
+  async guardarNombreAlumno(): Promise<void> {
+    const alumno = this.alumnoAEditar();
+    if (!alumno) return;
+    const nombre = this.nombreEditado.trim();
+    if (!nombre) {
+      this.errorAlumno.set('El nombre no puede estar vacío.');
+      return;
+    }
+
+    this.guardandoAlumno.set(true);
+    this.errorAlumno.set(null);
+
+    const { error } = await this.gruposService.editarAlumno(alumno.id, nombre);
+
+    this.guardandoAlumno.set(false);
+
+    if (error) {
+      this.errorAlumno.set(error);
+    } else {
+      this.alumnoAEditar.set(null);
+    }
+  }
+
+  /** Muestra el diálogo de confirmación de eliminación del alumno */
+  confirmarEliminarAlumno(alumno: Alumno): void {
+    this.alumnoAEliminar.set(alumno);
+    this.errorAlumno.set(null);
+  }
+
+  /** Ejecuta la eliminación del alumno tras confirmación */
+  async ejecutarEliminarAlumno(): Promise<void> {
+    const alumno = this.alumnoAEliminar();
+    if (!alumno) return;
+
+    this.guardandoAlumno.set(true);
+    this.errorAlumno.set(null);
+
+    const { error } = await this.gruposService.eliminarAlumno(alumno.id);
+
+    this.guardandoAlumno.set(false);
+
+    if (error) {
+      this.errorAlumno.set(error);
+    } else {
+      this.alumnoAEliminar.set(null);
+    }
   }
 }
