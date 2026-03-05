@@ -318,7 +318,7 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.streamPantalla && !this.pantallaCompartida()) {
+    if (this.streamPantalla) {
       this.streamPantalla.getTracks().forEach((t) => t.stop());
     }
   }

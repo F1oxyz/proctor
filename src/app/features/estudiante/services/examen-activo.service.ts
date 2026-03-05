@@ -68,6 +68,15 @@ export interface ResultadoFinal {
   sesion_alumno_id: string;
 }
 
+/** Mezcla un arreglo in-place con el algoritmo Fisher-Yates (sin sesgo) */
+function fisherYates<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 @Injectable()
 export class ExamenActivoService {
   // ── Dependencias ────────────────────────────────────────────────
@@ -269,12 +278,12 @@ export class ExamenActivoService {
       return false;
     }
 
-    const mezcladas = [...data].sort(() => Math.random() - 0.5);
+    const mezcladas = fisherYates([...data]);
     const conOpcionesMezcladas: PreguntaActiva[] = mezcladas.map((p: any) => ({
       id:      p.id,
       texto:   p.texto,
       tipo:    p.tipo,
-      opciones: [...(p.opciones ?? [])].sort(() => Math.random() - 0.5),
+      opciones: fisherYates([...(p.opciones ?? [])]),
     }));
 
     this.preguntas.set(conOpcionesMezcladas);

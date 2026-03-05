@@ -17,6 +17,9 @@ import {
   inject,
   signal,
   computed,
+  effect,
+  viewChild,
+  ElementRef,
   OnInit,
   OnDestroy,
 } from '@angular/core';
@@ -106,7 +109,6 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
           <div
             class="grid gap-4"
             [class.grid-cols-2]="columnas() === 2"
-            [class.grid-cols-2]="columnas() === 2"
             [class.sm:grid-cols-3]="columnas() === 3"
             [class.lg:grid-cols-3]="columnas() === 3"
             [class.sm:grid-cols-3]="columnas() === 4"
@@ -150,23 +152,23 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
           <div class="flex items-center gap-4 flex-wrap text-xs text-slate-500">
             <span class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-              Active ({{ conteoEstado('activo') }})
+              Activo ({{ conteoEstado('activo') }})
             </span>
             <span class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
-              Idle ({{ conteoEstado('idle') }})
+              Inactivo ({{ conteoEstado('idle') }})
             </span>
             <span class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
-              Flagged ({{ conteoEstado('flagged') }})
+              Marcado ({{ conteoEstado('flagged') }})
             </span>
             <span class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
-              Offline ({{ conteoEstado('offline') }})
+              Desconectado ({{ conteoEstado('offline') }})
             </span>
           </div>
           <span class="text-xs text-slate-400 flex items-center gap-1">
-            Last synced: Just now
+            Última sync: ahora
             <button
               type="button"
               (click)="sincronizarManual()"
@@ -257,7 +259,7 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
         </div>
         <div class="flex-1 flex items-center justify-center p-4">
           @if (streamDeAlumno(alumnoExpandido()!.alumno_id)) {
-            <video class="max-w-full max-h-full rounded-lg" autoplay muted playsinline></video>
+            <video #videoExpandido class="max-w-full max-h-full rounded-lg" autoplay muted playsinline></video>
           } @else {
             <p class="text-slate-400 text-sm">Sin stream disponible</p>
           }
@@ -287,6 +289,22 @@ export class MonitorComponent implements OnInit, OnDestroy {
 
   /** Bug 11: número de columnas del grid (configurable desde el navbar) */
   readonly columnas = signal<2 | 3 | 4>(4);
+
+  /** Referencia al video de pantalla completa */
+  private readonly videoExpandidoEl = viewChild<ElementRef<HTMLVideoElement>>('videoExpandido');
+
+  constructor() {
+    // Asignar el stream al elemento <video> cuando se abre pantalla completa
+    effect(() => {
+      const alumno = this.alumnoExpandido();
+      const el = this.videoExpandidoEl()?.nativeElement;
+      if (el && alumno) {
+        const stream = this.streamDeAlumno(alumno.alumno_id);
+        el.srcObject = stream;
+        if (stream) el.play().catch(() => {});
+      }
+    });
+  }
 
   // ── Computed ─────────────────────────────────────────────────────
 
