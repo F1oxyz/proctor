@@ -85,6 +85,11 @@ export class PeerService {
   private readonly _MAX_RETRIES = 4;
   private _retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  /** Datos para reintentar la llamada al docente cuando su peer no está listo aún */
+  private _reconexionTimer: ReturnType<typeof setTimeout> | null = null;
+  private _reconexionIntento = 0;
+  private readonly _MAX_RECONEXION = 5;
+
   // ── Modo DOCENTE (receptor) ──────────────────────────────────────
 
   /**
@@ -248,6 +253,7 @@ export class PeerService {
   ): Promise<string | null> {
     // Guardar referencia para poder detener el stream al finalizar el examen
     this._streamAlumno = stream;
+    this._reconexionIntento = 0;
 
     try {
       const { Peer } = await import('peerjs');
@@ -257,7 +263,10 @@ export class PeerService {
 
       this.peer = new Peer(peerIdAlumno, {
         config: {
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+          ],
         },
       });
 
@@ -268,25 +277,8 @@ export class PeerService {
           // Construir el peer ID del docente (mismo formato que inicializarComoReceptor)
           const peerIdDocente = `proctor-${sesionId.slice(0, 8)}`;
 
-          // Hacer la llamada al docente con metadata
-          const llamada = this.peer!.call(peerIdDocente, stream, {
-            metadata: { alumnoId },
-          });
-
-          if (!llamada) {
-            console.error('[PeerService] No se pudo iniciar la llamada al docente.');
-            resolve(null);
-            return;
-          }
-
-          llamada.on('error', (err) => {
-            console.error('[PeerService] Error al llamar al docente:', err);
-          });
-
-          // Manejar desconexión del stream por parte del alumno
-          stream.getVideoTracks()[0]?.addEventListener('ended', () => {
-            llamada.close();
-          });
+          // Primera llamada al docente (con reintentos automáticos si falla)
+          this._llamarAlDocente(peerIdDocente, stream, alumnoId);
 
           console.log(`[PeerService] Alumno ${idGenerado} conectando a ${peerIdDocente}`);
           resolve(idGenerado);
@@ -304,6 +296,65 @@ export class PeerService {
     }
   }
 
+  /**
+   * Intenta llamar al peer del docente con el stream del alumno.
+   * Si el docente no está disponible aún (peer-unavailable), reintenta
+   * automáticamente con delays crecientes (hasta _MAX_RECONEXION intentos).
+   *
+   * @param peerIdDocente  ID del peer del docente
+   * @param stream         Stream de pantalla del alumno
+   * @param alumnoId       UUID del alumno (metadata para el monitor)
+   */
+  private _llamarAlDocente(
+    peerIdDocente: string,
+    stream: MediaStream,
+    alumnoId: string
+  ): void {
+    if (!this.peer) return;
+
+    // Cancelar cualquier reintento pendiente anterior
+    if (this._reconexionTimer) {
+      clearTimeout(this._reconexionTimer);
+      this._reconexionTimer = null;
+    }
+
+    const llamada = this.peer.call(peerIdDocente, stream, {
+      metadata: { alumnoId },
+    });
+
+    if (!llamada) {
+      console.error('[PeerService] peer.call() retornó null, peer no válido.');
+      return;
+    }
+
+    llamada.on('error', (err: any) => {
+      console.error('[PeerService] Error en llamada al docente:', err);
+
+      // Si el docente aún no ha abierto el monitor, reintentamos
+      if (
+        (err.type === 'peer-unavailable' || err.type === 'network') &&
+        this._reconexionIntento < this._MAX_RECONEXION &&
+        this.peer   // verificar que el peer del alumno siga activo
+      ) {
+        this._reconexionIntento++;
+        const delay = this._reconexionIntento * 3000; // 3s, 6s, 9s, 12s, 15s
+        console.warn(
+          `[PeerService] Docente no disponible. Reintento ${this._reconexionIntento}/${this._MAX_RECONEXION} en ${delay / 1000}s...`
+        );
+        this._reconexionTimer = setTimeout(() => {
+          this._llamarAlDocente(peerIdDocente, stream, alumnoId);
+        }, delay);
+      }
+    });
+
+    // Cuando el alumno detiene la compartición desde el SO, cerrar la llamada
+    stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+      llamada.close();
+    });
+
+    console.log(`[PeerService] Llamando al docente: ${peerIdDocente} (intento ${this._reconexionIntento + 1})`);
+  }
+
   // ── Utilidades ───────────────────────────────────────────────────
 
   /**
@@ -311,6 +362,13 @@ export class PeerService {
    * Llamar desde ExamenComponent.ngOnDestroy() al terminar el examen.
    */
   detenerStreamAlumno(): void {
+    // Cancelar cualquier reintento de reconexión pendiente
+    if (this._reconexionTimer) {
+      clearTimeout(this._reconexionTimer);
+      this._reconexionTimer = null;
+    }
+    this._reconexionIntento = 0;
+
     if (this._streamAlumno) {
       this._streamAlumno.getTracks().forEach((t) => t.stop());
       this._streamAlumno = null;

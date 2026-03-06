@@ -17,6 +17,7 @@ import {
   inject,
   signal,
   computed,
+  effect,
   OnInit,
   OnDestroy,
 } from '@angular/core';
@@ -107,11 +108,12 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
                 </div>
               } @else {
                 <div class="flex gap-3 p-3 bg-green-50 border border-green-200 rounded-lg mb-5">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-green-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg class="w-5 h-5 text-green-500 shrink-0 mt-0.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
                   </svg>
                   <p class="text-xs text-green-700 leading-relaxed">
-                    <strong>¡El examen ha iniciado!</strong> Cuando estés listo, haz clic en "Comenzar Examen".
+                    <strong>¡El examen ha iniciado!</strong> Ingresando automáticamente...
                   </p>
                 </div>
               }
@@ -229,27 +231,16 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
                 Esperando al profesor...
               </button>
             } @else {
-              <!-- PASO 2b: Examen activo → Comenzar -->
-              <button
-                type="button"
-                (click)="comenzarExamen()"
-                [disabled]="iniciando()"
-                class="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-xl transition-colors mb-4"
+              <!-- PASO 2b: Examen activo → redirección automática -->
+              <div
+                class="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-green-700 bg-green-50 border border-green-200 rounded-xl mb-4"
               >
-                @if (iniciando()) {
-                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                  </svg>
-                  Iniciando...
-                } @else {
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Comenzar Examen
-                }
-              </button>
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                Ingresando al examen...
+              </div>
             }
 
             <div class="flex items-center justify-between text-xs text-slate-400">
@@ -295,6 +286,31 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
    * ExamenComponent es responsable de detenerlo al finalizar.
    */
   private navegandoAEvaluacion = false;
+
+  /**
+   * Evita que el effect de auto-redirección dispare comenzarExamen() más de una vez.
+   */
+  private autoRedirigiendo = false;
+
+  // ── Constructor ───────────────────────────────────────────────────
+
+  constructor() {
+    /**
+     * Escucha cambios en el estado de la sesión.
+     * Cuando el docente inicia el examen (estado → 'activa') y el alumno
+     * ya se unió a la sala, navega automáticamente sin que el alumno
+     * tenga que presionar ningún botón.
+     */
+    effect(() => {
+      const estado = this.servicio.sesion()?.estado;
+      const unido  = this.yaUnido();
+
+      if (estado === 'activa' && unido && !this.autoRedirigiendo) {
+        this.autoRedirigiendo = true;
+        void this.comenzarExamen();
+      }
+    });
+  }
 
   // ── Computed ─────────────────────────────────────────────────────
 
