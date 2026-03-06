@@ -25,7 +25,7 @@ import {
       <!-- Etiqueta "QUESTION X OF N" -->
       <div class="flex items-center justify-between">
         <span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">
-          Question {{ preguntaActual() }} of {{ totalPreguntas() }}
+          Pregunta {{ preguntaActual() }} de {{ totalPreguntas() }}
         </span>
         <span class="text-xs text-slate-400">
           {{ porcentaje() }}%

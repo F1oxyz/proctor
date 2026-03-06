@@ -88,7 +88,7 @@ import {
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                 <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
               </span>
-              <span class="text-xs font-medium text-green-700">Live Monitoring</span>
+              <span class="text-xs font-medium text-green-700">Monitoreo en vivo</span>
             </div>
           } @else {
             <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-full">
@@ -208,18 +208,18 @@ import {
 })
 export class MonitorNavbarComponent {
   // ── Inputs ───────────────────────────────────────────────────────
-  tituloExamen      = input('—');
-  codigoExamen      = input('—');
-  codigoAcceso      = input('');
+  tituloExamen = input('—');
+  codigoExamen = input('—');
+  codigoAcceso = input('');
   alumnosConectados = input(0);
-  totalAlumnos      = input(0);
+  totalAlumnos = input(0);
   segundosRestantes = input(0);
-  examenIniciado    = input(false);  // Bug 7
+  examenIniciado = input(false);  // Bug 7
 
   // ── Outputs ──────────────────────────────────────────────────────
   finalizarSesion = output<void>();
-  iniciarExamen   = output<void>();          // Bug 7
-  cambioColumnas  = output<2 | 3 | 4>();    // Bug 11
+  iniciarExamen = output<void>();          // Bug 7
+  cambioColumnas = output<2 | 3 | 4>();    // Bug 11
 
   // ── Estado local ─────────────────────────────────────────────────
   readonly mostrarMenuConfig = signal(false);  // Bug 11
