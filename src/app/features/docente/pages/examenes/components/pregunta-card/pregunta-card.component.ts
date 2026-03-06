@@ -37,7 +37,7 @@ const LETRAS_OPCIONES = ['A', 'B', 'C', 'D'] as const;
 
       <!-- ── Header ────────────────────── -->
       <div class="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
-        <span class="text-xs font-semibold text-blue-600 uppercase tracking-wider">
+        <span class="text-xs font-semibold text-brand uppercase tracking-wider">
           Pregunta {{ numero() }}
         </span>
         <div class="flex items-center gap-2">
@@ -72,9 +72,9 @@ const LETRAS_OPCIONES = ['A', 'B', 'C', 'D'] as const;
             type="button"
             (click)="cambiarTipo('opcion_multiple')"
             class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors"
-            [class.bg-blue-600]="tipoActual() === 'opcion_multiple'"
+            [class.bg-brand]="tipoActual() === 'opcion_multiple'"
             [class.text-white]="tipoActual() === 'opcion_multiple'"
-            [class.border-blue-600]="tipoActual() === 'opcion_multiple'"
+            [class.border-brand]="tipoActual() === 'opcion_multiple'"
             [class.bg-white]="tipoActual() !== 'opcion_multiple'"
             [class.text-slate-600]="tipoActual() !== 'opcion_multiple'"
             [class.border-gray-200]="tipoActual() !== 'opcion_multiple'"
@@ -88,9 +88,9 @@ const LETRAS_OPCIONES = ['A', 'B', 'C', 'D'] as const;
             type="button"
             (click)="cambiarTipo('texto_abierto')"
             class="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors"
-            [class.bg-blue-600]="tipoActual() === 'texto_abierto'"
+            [class.bg-brand]="tipoActual() === 'texto_abierto'"
             [class.text-white]="tipoActual() === 'texto_abierto'"
-            [class.border-blue-600]="tipoActual() === 'texto_abierto'"
+            [class.border-brand]="tipoActual() === 'texto_abierto'"
             [class.bg-white]="tipoActual() !== 'texto_abierto'"
             [class.text-slate-600]="tipoActual() !== 'texto_abierto'"
             [class.border-gray-200]="tipoActual() !== 'texto_abierto'"
@@ -116,7 +116,7 @@ const LETRAS_OPCIONES = ['A', 'B', 'C', 'D'] as const;
             placeholder="Ej: ¿Qué es la Segunda Ley de Newton?"
             class="w-full px-3 py-2.5 text-sm border rounded-lg text-slate-800
                    placeholder-slate-400 focus:outline-none focus:ring-2
-                   focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                   focus:ring-brand/20 focus:border-brand transition-colors"
             [class.border-gray-200]="!mostrarErrorTexto()"
             [class.border-red-400]="mostrarErrorTexto()"
           />
@@ -159,13 +159,13 @@ const LETRAS_OPCIONES = ['A', 'B', 'C', 'D'] as const;
             <label
               [for]="'img-input-' + numero()"
               class="flex items-center gap-2 px-3 py-2.5 border border-dashed border-gray-300
-                     rounded-lg text-xs font-medium text-slate-500 hover:border-blue-400
-                     hover:text-blue-600 hover:bg-blue-50/40 transition-colors cursor-pointer"
+                     rounded-lg text-xs font-medium text-slate-500 hover:border-brand/40
+                     hover:text-brand hover:bg-brand/10 transition-colors cursor-pointer"
               [class.opacity-60]="subiendoImagen()"
               [class.pointer-events-none]="subiendoImagen()"
             >
               @if (subiendoImagen()) {
-                <svg class="w-4 h-4 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 animate-spin text-brand" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
                 </svg>
@@ -202,11 +202,11 @@ const LETRAS_OPCIONES = ['A', 'B', 'C', 'D'] as const;
             <div class="flex flex-col gap-2">
               @for (opcion of opciones; track $index; let i = $index) {
                 <div
-                  class="flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors"
-                  [class.border-blue-200]="opcionCorrectaIdx === i"
-                  [class.bg-blue-50]="opcionCorrectaIdx === i"
-                  [class.border-gray-100]="opcionCorrectaIdx !== i"
-                  [class.bg-gray-50]="opcionCorrectaIdx !== i"
+                  class="flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors"
+                [class.border-brand/30]="opcionCorrectaIdx === i"
+                [class.bg-brand/10]="opcionCorrectaIdx === i"
+                [class.border-gray-100]="opcionCorrectaIdx !== i"
+                [class.bg-gray-50]="opcionCorrectaIdx !== i"
                 >
                   <input
                     type="radio"
@@ -214,17 +214,17 @@ const LETRAS_OPCIONES = ['A', 'B', 'C', 'D'] as const;
                     [id]="'opcion-' + numero() + '-' + i"
                     [checked]="opcionCorrectaIdx === i"
                     (change)="marcarCorrecta(i)"
-                    class="w-4 h-4 text-blue-600 shrink-0 cursor-pointer"
-                    [attr.aria-label]="'Marcar opción ' + letras[i] + ' como correcta'"
+                  class="w-4 h-4 text-brand shrink-0 cursor-pointer"
+                  [attr.aria-label]="'Marcar opción ' + letras[i] + ' como correcta'"
                   />
                   <span
-                    class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                    [class.bg-blue-600]="opcionCorrectaIdx === i"
-                    [class.text-white]="opcionCorrectaIdx === i"
-                    [class.bg-white]="opcionCorrectaIdx !== i"
-                    [class.text-slate-500]="opcionCorrectaIdx !== i"
-                    [class.border]="opcionCorrectaIdx !== i"
-                    [class.border-gray-300]="opcionCorrectaIdx !== i"
+                  class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                  [class.bg-brand]="opcionCorrectaIdx === i"
+                  [class.text-white]="opcionCorrectaIdx === i"
+                  [class.bg-white]="opcionCorrectaIdx !== i"
+                  [class.text-slate-500]="opcionCorrectaIdx !== i"
+                  [class.border]="opcionCorrectaIdx !== i"
+                  [class.border-gray-300]="opcionCorrectaIdx !== i"
                   >
                     {{ letras[i] }}
                   </span>
@@ -259,7 +259,7 @@ const LETRAS_OPCIONES = ['A', 'B', 'C', 'D'] as const;
               <button
                 type="button"
                 (click)="agregarOpcion()"
-                class="mt-1 flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                class="mt-1 flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80 transition-colors"
               >
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -303,11 +303,11 @@ export class PreguntaCardComponent implements OnInit {
 
   // ── Outputs ────────────────────────────────────────────
   eliminar = output<void>();
-  cambio   = output<PreguntaPayload>();
+  cambio = output<PreguntaPayload>();
 
   // ── Estado interno ─────────────────────────────────────
 
-  textoPregunta     = '';
+  textoPregunta = '';
   opcionCorrectaIdx = -1;
 
   /** Bug 9: empezar con 2 opciones, máximo 4 */
@@ -324,11 +324,11 @@ export class PreguntaCardComponent implements OnInit {
   // ── Estado imagen (Feature 2) ──────────────────────────
 
   /** URL pública de la imagen subida (null si no hay) */
-  readonly imagenUrl      = signal<string | null>(null);
+  readonly imagenUrl = signal<string | null>(null);
   /** true mientras se sube la imagen a Storage */
   readonly subiendoImagen = signal(false);
   /** Mensaje de error si la imagen no se pudo subir */
-  readonly errorImagen    = signal<string | null>(null);
+  readonly errorImagen = signal<string | null>(null);
 
   // ── Lifecycle ──────────────────────────────────────────
 
@@ -415,7 +415,7 @@ export class PreguntaCardComponent implements OnInit {
   /** Sube la imagen seleccionada al bucket de Supabase Storage */
   async onSeleccionarImagen(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
-    const file  = input.files?.[0];
+    const file = input.files?.[0];
     if (!file) return;
 
     // Validación de tamaño (5 MB máx)
@@ -455,15 +455,15 @@ export class PreguntaCardComponent implements OnInit {
 
   emitirCambio() {
     const payload: PreguntaPayload = {
-      texto:      this.textoPregunta,
-      tipo:       this.tipoActual(),
+      texto: this.textoPregunta,
+      tipo: this.tipoActual(),
       imagen_url: this.imagenUrl(),
-      opciones:   this.tipoActual() === 'opcion_multiple'
+      opciones: this.tipoActual() === 'opcion_multiple'
         ? this.opciones.map((o, i) => ({
-            texto:       o.texto,
-            es_correcta: i === this.opcionCorrectaIdx,
-            orden:       i,
-          }))
+          texto: o.texto,
+          es_correcta: i === this.opcionCorrectaIdx,
+          orden: i,
+        }))
         : [],
     };
     this.cambio.emit(payload);

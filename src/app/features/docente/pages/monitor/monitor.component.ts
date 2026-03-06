@@ -25,11 +25,11 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import { SesionesService }       from '../../services/sesiones.service';
-import { PeerService }           from '../../../../core/services/peer.service';
+import { SesionesService } from '../../services/sesiones.service';
+import { PeerService } from '../../../../core/services/peer.service';
 import { MonitorNavbarComponent } from './components/monitor-navbar/monitor-navbar.component';
-import { AlumnoTileComponent }   from './components/alumno-tile/alumno-tile.component';
-import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
+import { AlumnoTileComponent } from './components/alumno-tile/alumno-tile.component';
+import { SesionAlumnoConDatos } from '../../../../shared/models/index';
 
 @Component({
   selector: 'app-monitor',
@@ -79,7 +79,7 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
         <!-- ── Loading inicial ── -->
         @if (sesiones.cargando() && sesiones.alumnosEnSesion().length === 0) {
           <div class="flex flex-col items-center justify-center py-24 gap-3">
-            <svg class="w-8 h-8 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+            <svg class="w-8 h-8 animate-spin text-brand" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
             </svg>
@@ -130,7 +130,7 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
         @else if (!sesiones.cargando()) {
           <div class="flex flex-col items-center justify-center py-24 gap-4">
             <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
-              <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#0065e0"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="var(--color-brand)"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
             </div>
             <p class="text-sm font-medium text-slate-600">Esperando que los alumnos se conecten...</p>
             <p class="text-xs text-slate-400">
@@ -170,7 +170,7 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
             <button
               type="button"
               (click)="sincronizarManual()"
-              class="ml-1 text-blue-500 hover:text-blue-600 transition-colors"
+              class="ml-1 text-brand hover:text-brand/80 transition-colors"
               aria-label="Sincronizar ahora"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -269,8 +269,8 @@ import { SesionAlumnoConDatos }  from '../../../../shared/models/index';
 export class MonitorComponent implements OnInit, OnDestroy {
   // ── Dependencias ────────────────────────────────────────────────
   readonly sesiones = inject(SesionesService);
-  readonly peer     = inject(PeerService);
-  private readonly route  = inject(ActivatedRoute);
+  readonly peer = inject(PeerService);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   // ── Estado ───────────────────────────────────────────────────────
@@ -299,7 +299,7 @@ export class MonitorComponent implements OnInit, OnDestroy {
       if (el && alumno) {
         const stream = this.streamDeAlumno(alumno.alumno_id);
         el.srcObject = stream;
-        if (stream) el.play().catch(() => {});
+        if (stream) el.play().catch(() => { });
       }
     });
   }
@@ -319,11 +319,11 @@ export class MonitorComponent implements OnInit, OnDestroy {
     return this.sesiones.alumnosEnSesion().filter((a) => {
       const tieneStream = this.peer.streamsPorAlumno().has(a.alumno_id);
       switch (estado) {
-        case 'activo':  return tieneStream && a.estado === 'en_progreso';
+        case 'activo': return tieneStream && a.estado === 'en_progreso';
         case 'offline': return !tieneStream && a.estado !== 'enviado';
-        case 'idle':    return false;
+        case 'idle': return false;
         case 'flagged': return false;
-        default:        return false;
+        default: return false;
       }
     }).length;
   }

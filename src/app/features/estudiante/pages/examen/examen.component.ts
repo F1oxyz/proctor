@@ -65,7 +65,7 @@ import { OpcionActiva } from '../../services/examen-activo.service';
           <!-- Info del alumno -->
           <div class="flex items-center gap-3">
             <!-- Avatar iniciales -->
-            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+            <div class="w-8 h-8 rounded-full bg-brand flex items-center justify-center">
               <span class="text-xs font-bold text-white">
                 {{ iniciales() }}
               </span>
@@ -105,7 +105,7 @@ import { OpcionActiva } from '../../services/examen-activo.service';
             @if (servicio.cargando()) {
               <!-- Loading de preguntas -->
               <div class="flex items-center justify-center py-12">
-                <svg class="w-7 h-7 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                <svg class="w-7 h-7 animate-spin text-brand" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
                 </svg>
@@ -178,7 +178,7 @@ import { OpcionActiva } from '../../services/examen-activo.service';
               <button
                 type="button"
                 (click)="servicio.siguientePregunta()"
-                class="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                class="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-secondary rounded-xl transition-colors"
               >
                 Siguiente
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -242,9 +242,9 @@ import { OpcionActiva } from '../../services/examen-activo.service';
 })
 export class ExamenComponent implements OnInit, OnDestroy {
   // ── Dependencias ────────────────────────────────────────────────
-  readonly servicio  = inject(ExamenActivoService);
-  private readonly route      = inject(ActivatedRoute);
-  private readonly router     = inject(Router);
+  readonly servicio = inject(ExamenActivoService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly peerService = inject(PeerService);
 
   // ── Estado del temporizador ───────────────────────────────────────
@@ -308,8 +308,8 @@ export class ExamenComponent implements OnInit, OnDestroy {
     // Bug 4: calcular segundos restantes descontando el tiempo ya transcurrido
     const totalSeg = sesion.duracion_min * 60;
     if (sesion.iniciada_en) {
-      const ahora       = Date.now();
-      const iniciadaMs  = new Date(sesion.iniciada_en).getTime();
+      const ahora = Date.now();
+      const iniciadaMs = new Date(sesion.iniciada_en).getTime();
       const transcurridos = Math.floor((ahora - iniciadaMs) / 1000);
       this.segundosRestantes.set(Math.max(0, totalSeg - transcurridos));
     } else {

@@ -67,7 +67,7 @@ import { Grupo } from '../../../../../../shared/models';
             placeholder="Ej. Dibujo Industrial - 2do Cuatri"
             class="w-full px-3 py-2.5 text-sm border rounded-lg text-slate-800
                    placeholder-slate-400 focus:outline-none focus:ring-2
-                   focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                   focus:ring-brand/20 focus:border-brand transition-colors"
             [class.border-red-400]="campoInvalido('nombre')"
             [class.border-gray-200]="!campoInvalido('nombre')"
           />
@@ -91,15 +91,15 @@ import { Grupo } from '../../../../../../shared/models';
             placeholder="Juan Pérez&#10;María González&#10;Carlos Ruiz&#10;..."
             class="w-full px-3 py-2.5 text-sm border rounded-lg text-slate-800
                    placeholder-slate-400 resize-y min-h-[140px]
-                   focus:outline-none focus:ring-2 focus:ring-blue-500/20
-                   focus:border-blue-500 transition-colors font-mono leading-relaxed"
+                   focus:outline-none focus:ring-2 focus:ring-brand/20
+                   focus:border-brand transition-colors font-mono leading-relaxed"
             [class.border-red-400]="campoInvalido('listaAlumnos')"
             [class.border-gray-200]="!campoInvalido('listaAlumnos')"
           ></textarea>
 
           <!-- Info helper -->
           <p class="text-xs text-slate-400 flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 text-blue-400 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <svg class="w-3.5 h-3.5 text-brand shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
               <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
             </svg>
             Copia y pega los nombres desde tu lista de Excel. Un alumno por línea.

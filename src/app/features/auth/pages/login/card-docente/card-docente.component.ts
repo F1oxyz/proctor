@@ -13,8 +13,8 @@ type Vista = 'login' | 'registro';
 
       <!-- Ícono + Título -->
       <div class="flex flex-col items-center text-center gap-3">
-        <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#0065e0"><path d="M160-120q-33 0-56.5-23.5T80-200v-440q0-33 23.5-56.5T160-720h160v-80q0-33 23.5-56.5T400-880h160q33 0 56.5 23.5T640-800v80h160q33 0 56.5 23.5T880-640v440q0 33-23.5 56.5T800-120H160Zm0-80h640v-440H160v440Zm240-520h160v-80H400v80ZM160-200v-440 440Z"/></svg>
+        <div class="w-12 h-12 bg-brand/10 rounded-full flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="var(--color-brand)"><path d="M160-120q-33 0-56.5-23.5T80-200v-440q0-33 23.5-56.5T160-720h160v-80q0-33 23.5-56.5T400-880h160q33 0 56.5 23.5T640-800v80h160q33 0 56.5 23.5T880-640v440q0 33-23.5 56.5T800-120H160Zm0-80h640v-440H160v440Zm240-520h160v-80H400v80ZM160-200v-440 440Z"/></svg>
         </div>
         <div>
           <h2 class="text-lg font-semibold text-slate-800">Docentes</h2>
@@ -36,7 +36,7 @@ type Vista = 'login' | 'registro';
               formControlName="email"
               placeholder="nombre@universidad.edu.mx"
               class="w-full px-3 py-2.5 text-sm border rounded-lg text-slate-800 placeholder-slate-400
-                     focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                     focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-colors"
               [class.border-red-400]="campoInvalido(loginForm.get('email')!)"
               [class.border-gray-200]="!campoInvalido(loginForm.get('email')!)"
             />
@@ -53,7 +53,7 @@ type Vista = 'login' | 'registro';
                 [type]="mostrarPass() ? 'text' : 'password'"
                 formControlName="password"
                 class="w-full px-3 py-2.5 pr-10 text-sm border rounded-lg text-slate-800 placeholder-slate-400
-                       focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                       focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-colors"
                 [class.border-red-400]="campoInvalido(loginForm.get('password')!)"
                 [class.border-gray-200]="!campoInvalido(loginForm.get('password')!)"
               />
@@ -93,7 +93,7 @@ type Vista = 'login' | 'registro';
           <button
             type="submit"
             [disabled]="auth.loading()"
-            class="w-full bg-slate-800 hover:bg-slate-900 active:bg-black disabled:bg-slate-300
+            class="w-full bg-brand hover:bg-brand/90 active:bg-brand/80 disabled:bg-brand/30
                    text-white text-sm font-medium py-2.5 rounded-lg transition-colors cursor-pointer
                    disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-auto"
           >
@@ -114,7 +114,7 @@ type Vista = 'login' | 'registro';
         <p class="text-xs text-slate-500 text-center">
           ¿No tienes cuenta?
           <button (click)="cambiarVista('registro')"
-            class="text-blue-600 font-medium hover:underline cursor-pointer ml-0.5">
+            class="text-brand font-medium hover:underline cursor-pointer ml-0.5">
             Regístrate aquí
           </button>
         </p>
@@ -132,7 +132,7 @@ type Vista = 'login' | 'registro';
               formControlName="nombre"
               placeholder="Ej: Juan Pérez"
               class="w-full px-3 py-2.5 text-sm border rounded-lg text-slate-800 placeholder-slate-400
-                     focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                     focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-colors"
               [class.border-red-400]="campoInvalido(registroForm.get('nombre')!)"
               [class.border-gray-200]="!campoInvalido(registroForm.get('nombre')!)"
             />
@@ -149,7 +149,7 @@ type Vista = 'login' | 'registro';
               formControlName="email"
               placeholder="nombre@universidad.edu"
               class="w-full px-3 py-2.5 text-sm border rounded-lg text-slate-800 placeholder-slate-400
-                     focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                     focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-colors"
               [class.border-red-400]="campoInvalido(registroForm.get('email')!)"
               [class.border-gray-200]="!campoInvalido(registroForm.get('email')!)"
             />
@@ -167,7 +167,7 @@ type Vista = 'login' | 'registro';
                 formControlName="password"
                 placeholder="Mínimo 8 caracteres"
                 class="w-full px-3 py-2.5 pr-10 text-sm border rounded-lg text-slate-800 placeholder-slate-400
-                       focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                       focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-colors"
                 [class.border-red-400]="campoInvalido(registroForm.get('password')!)"
                 [class.border-gray-200]="!campoInvalido(registroForm.get('password')!)"
               />
@@ -215,7 +215,7 @@ type Vista = 'login' | 'registro';
           <button
             type="submit"
             [disabled]="auth.loading()"
-            class="w-full bg-slate-800 hover:bg-slate-900 active:bg-black disabled:bg-slate-300
+            class="w-full bg-brand hover:bg-brand/90 active:bg-brand/80 disabled:bg-brand/30
                    text-white text-sm font-medium py-2.5 rounded-lg transition-colors cursor-pointer
                    disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-auto"
           >
@@ -236,7 +236,7 @@ type Vista = 'login' | 'registro';
         <p class="text-xs text-slate-500 text-center">
           ¿Ya tienes cuenta?
           <button (click)="cambiarVista('login')"
-            class="text-blue-600 font-medium hover:underline cursor-pointer ml-0.5">
+            class="text-brand font-medium hover:underline cursor-pointer ml-0.5">
             Inicia sesión aquí
           </button>
         </p>

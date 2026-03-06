@@ -11,8 +11,8 @@ import { FormsModule } from '@angular/forms';
 
       <!-- Ícono + Título -->
       <div class="flex flex-col items-center text-center gap-3">
-        <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#0065e0"><path d="M480-120 200-272v-240L40-600l440-240 440 240v320h-80v-276l-80 44v240L480-120Zm0-332 274-148-274-148-274 148 274 148Zm0 241 200-108v-151L480-360 280-470v151l200 108Zm0-241Zm0 90Zm0 0Z"/></svg>
+        <div class="w-12 h-12 bg-brand/10 rounded-full flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="var(--color-brand)"><path d="M480-120 200-272v-240L40-600l440-240 440 240v320h-80v-276l-80 44v240L480-120Zm0-332 274-148-274-148-274 148 274 148Zm0 241 200-108v-151L480-360 280-470v151l200 108Zm0-241Zm0 90Zm0 0Z"/></svg>
         </div>
         <div>
           <h2 class="text-lg font-semibold text-slate-800">Estudiantes</h2>
@@ -40,7 +40,7 @@ import { FormsModule } from '@angular/forms';
               placeholder="EJ: XYZ763"
               class="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg
                      text-slate-800 placeholder-slate-400 bg-white
-                     focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                     focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand
                      transition-colors uppercase tracking-widest"
               [class.border-red-400]="mostrarError()"
               autocomplete="off"
@@ -58,7 +58,7 @@ import { FormsModule } from '@angular/forms';
 
         <button
           (click)="entrar()"
-          class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800
+          class="w-full bg-brand hover:bg-brand/90 active:bg-brand/80
                  text-white text-sm font-medium py-2.5 rounded-lg
                  transition-colors cursor-pointer"
         >

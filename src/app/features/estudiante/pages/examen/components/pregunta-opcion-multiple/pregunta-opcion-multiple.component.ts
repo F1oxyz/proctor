@@ -91,9 +91,9 @@ import { PreguntaActiva, OpcionActiva } from '../../../../services/examen-activo
           <button
             type="button"
             (click)="seleccionar(opcion)"
-            class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl border-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-            [class.border-blue-500]="opcionSeleccionadaId() === opcion.id"
-            [class.bg-blue-50]="opcionSeleccionadaId() === opcion.id"
+            class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl border-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
+            [class.border-brand]="opcionSeleccionadaId() === opcion.id"
+            [class.bg-brand/10]="opcionSeleccionadaId() === opcion.id"
             [class.border-slate-200]="opcionSeleccionadaId() !== opcion.id"
             [class.bg-white]="opcionSeleccionadaId() !== opcion.id"
             [class.hover:border-slate-300]="opcionSeleccionadaId() !== opcion.id"
@@ -104,8 +104,8 @@ import { PreguntaActiva, OpcionActiva } from '../../../../services/examen-activo
             <!-- Indicador radio circular -->
             <div
               class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-              [class.border-blue-600]="opcionSeleccionadaId() === opcion.id"
-              [class.bg-blue-600]="opcionSeleccionadaId() === opcion.id"
+              [class.border-brand]="opcionSeleccionadaId() === opcion.id"
+              [class.bg-brand]="opcionSeleccionadaId() === opcion.id"
               [class.border-slate-300]="opcionSeleccionadaId() !== opcion.id"
             >
               @if (opcionSeleccionadaId() === opcion.id) {
@@ -117,7 +117,7 @@ import { PreguntaActiva, OpcionActiva } from '../../../../services/examen-activo
             <span
               class="text-sm leading-relaxed"
               [class.font-medium]="opcionSeleccionadaId() === opcion.id"
-              [class.text-blue-700]="opcionSeleccionadaId() === opcion.id"
+              [class.text-brand]="opcionSeleccionadaId() === opcion.id"
               [class.text-slate-700]="opcionSeleccionadaId() !== opcion.id"
             >
               {{ opcion.texto }}

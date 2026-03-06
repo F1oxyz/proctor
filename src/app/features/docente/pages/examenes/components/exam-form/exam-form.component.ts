@@ -80,7 +80,7 @@ import { LoadingSpinnerComponent } from '../../../../../../shared/components/loa
             <!-- ── Sección Detalles del Examen ────────── -->
             <div class="bg-white rounded-xl border border-gray-100 p-5 flex flex-col gap-4">
               <div class="flex items-center gap-2 mb-1">
-                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+                <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round"
                   d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
               </svg>
@@ -99,7 +99,7 @@ import { LoadingSpinnerComponent } from '../../../../../../shared/components/loa
                     placeholder="ej: Examen Final de Física I"
                     class="w-full px-3 py-2.5 text-sm border rounded-lg text-slate-800
                            placeholder-slate-400 focus:outline-none focus:ring-2
-                           focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                           focus:ring-brand/20 focus:border-brand transition-colors"
                     [class.border-red-400]="campoInvalido('titulo')"
                     [class.border-gray-200]="!campoInvalido('titulo')"
                   />
@@ -126,8 +126,8 @@ import { LoadingSpinnerComponent } from '../../../../../../shared/components/loa
                       min="1"
                       max="300"
                       class="w-full pl-9 pr-3 py-2.5 text-sm border rounded-lg text-slate-800
-                             focus:outline-none focus:ring-2 focus:ring-blue-500/20
-                             focus:border-blue-500 transition-colors"
+                             focus:outline-none focus:ring-2 focus:ring-brand/20
+                             focus:border-brand transition-colors"
                       [class.border-red-400]="campoInvalido('duracion_min')"
                       [class.border-gray-200]="!campoInvalido('duracion_min')"
                     />
@@ -155,8 +155,8 @@ import { LoadingSpinnerComponent } from '../../../../../../shared/components/loa
                       min="0"
                       max="100"
                       class="w-full pl-9 pr-3 py-2.5 text-sm border rounded-lg text-slate-800
-                             focus:outline-none focus:ring-2 focus:ring-blue-500/20
-                             focus:border-blue-500 transition-colors"
+                             focus:outline-none focus:ring-2 focus:ring-brand/20
+                             focus:border-brand transition-colors"
                       [class.border-red-400]="campoInvalido('minimo_aprobatorio')"
                       [class.border-gray-200]="!campoInvalido('minimo_aprobatorio')"
                     />
@@ -177,13 +177,13 @@ import { LoadingSpinnerComponent } from '../../../../../../shared/components/loa
                   id="grupo"
                   formControlName="grupo_id"
                   class="w-full px-3 py-2.5 text-sm border rounded-lg text-slate-800 bg-white
-                         focus:outline-none focus:ring-2 focus:ring-blue-500/20
-                         focus:border-blue-500 transition-colors cursor-pointer"
+                         focus:outline-none focus:ring-2 focus:ring-brand/20
+                         focus:border-brand transition-colors cursor-pointer"
                   [class.border-red-400]="campoInvalido('grupo_id')"
                   [class.border-gray-200]="!campoInvalido('grupo_id')"
                 >
                   <option value="">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#0065e0"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="var(--color-brand)"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
                     Seleccionar Grupo
                   </option>
                   @for (grupo of gruposService.grupos(); track grupo.id) {
@@ -207,8 +207,8 @@ import { LoadingSpinnerComponent } from '../../../../../../shared/components/loa
                   placeholder="Agrega instrucciones o detalles sobre este examen..."
                   class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg
                          text-slate-800 placeholder-slate-400 resize-none
-                         focus:outline-none focus:ring-2 focus:ring-blue-500/20
-                         focus:border-blue-500 transition-colors"
+                         focus:outline-none focus:ring-2 focus:ring-brand/20
+                         focus:border-brand transition-colors"
                 ></textarea>
               </div>
             </div>
@@ -239,8 +239,8 @@ import { LoadingSpinnerComponent } from '../../../../../../shared/components/loa
                 type="button"
                 (click)="agregarPregunta()"
                 class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl
-                       text-sm font-medium text-slate-500 hover:border-blue-300
-                       hover:text-blue-600 hover:bg-blue-50/30 transition-colors cursor-pointer
+                       text-sm font-medium text-slate-500 hover:border-brand/40
+                       hover:text-brand hover:bg-brand/5 transition-colors cursor-pointer
                        flex items-center justify-center gap-2"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -333,11 +333,11 @@ export class ExamFormComponent implements OnInit {
   // ── Formulario de metadata del examen ─────────────────
 
   form = this.fb.group({
-    titulo:             ['', [Validators.required, Validators.minLength(3)]],
-    duracion_min:       [60, [Validators.required, Validators.min(1)]],
+    titulo: ['', [Validators.required, Validators.minLength(3)]],
+    duracion_min: [60, [Validators.required, Validators.min(1)]],
     minimo_aprobatorio: [60, [Validators.required, Validators.min(0), Validators.max(100)]],
-    grupo_id:           ['', Validators.required],
-    descripcion:        [''],
+    grupo_id: ['', Validators.required],
+    descripcion: [''],
   });
 
   // ── Lifecycle ──────────────────────────────────────────
@@ -356,22 +356,22 @@ export class ExamFormComponent implements OnInit {
       if (examen) {
         // Poblar el formulario de metadata
         this.form.patchValue({
-          titulo:             examen.titulo,
-          duracion_min:       examen.duracion_min,
+          titulo: examen.titulo,
+          duracion_min: examen.duracion_min,
           minimo_aprobatorio: examen.minimo_aprobatorio ?? 60,
-          grupo_id:           examen.grupo_id,
+          grupo_id: examen.grupo_id,
         });
 
         // Poblar las preguntas
         this.preguntas.set(
           examen.preguntas.map((p) => ({
-            texto:      p.texto,
-            tipo:       p.tipo,
+            texto: p.texto,
+            tipo: p.tipo,
             imagen_url: p.imagen_url ?? null,
-            opciones:   p.opciones.map((o) => ({
-              texto:       o.texto,
+            opciones: p.opciones.map((o) => ({
+              texto: o.texto,
               es_correcta: o.es_correcta,
-              orden:       o.orden,
+              orden: o.orden,
             })),
           }))
         );
@@ -456,11 +456,11 @@ export class ExamFormComponent implements OnInit {
     const { titulo, duracion_min, minimo_aprobatorio, grupo_id } = this.form.value;
 
     const payload = {
-      titulo:             titulo!,
-      duracion_min:       duracion_min!,
+      titulo: titulo!,
+      duracion_min: duracion_min!,
       minimo_aprobatorio: minimo_aprobatorio!,
-      grupo_id:           grupo_id!,
-      preguntas:          this.preguntas(),
+      grupo_id: grupo_id!,
+      preguntas: this.preguntas(),
     };
 
     let result;

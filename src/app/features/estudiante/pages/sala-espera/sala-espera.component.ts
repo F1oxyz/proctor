@@ -39,7 +39,7 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
       <header class="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
         <div class="flex items-center gap-2">
           <div class="w-7 h-7 rounded-md flex items-center justify-center">
-            <svg  xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#0065e0"><path d="M240-40H120q-33 0-56.5-23.5T40-120v-120h80v120h120v80Zm480 0v-80h120v-120h80v120q0 33-23.5 56.5T840-40H720ZM480-220q-120 0-217.5-71T120-480q45-118 142.5-189T480-740q120 0 217.5 71T840-480q-45 118-142.5 189T480-220Zm0-80q88 0 161-48t112-132q-39-84-112-132t-161-48q-88 0-161 48T207-480q39 84 112 132t161 48Zm0-40q58 0 99-41t41-99q0-58-41-99t-99-41q-58 0-99 41t-41 99q0 58 41 99t99 41Zm0-80q-25 0-42.5-17.5T420-480q0-25 17.5-42.5T480-540q25 0 42.5 17.5T540-480q0 25-17.5 42.5T480-420ZM40-720v-120q0-33 23.5-56.5T120-920h120v80H120v120H40Zm800 0v-120H720v-80h120q33 0 56.5 23.5T920-840v120h-80ZM480-480Z"/></svg>
+            <svg  xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="var(--color-brand)"><path d="M240-40H120q-33 0-56.5-23.5T40-120v-120h80v120h120v80Zm480 0v-80h120v-120h80v120q0 33-23.5 56.5T840-40H720ZM480-220q-120 0-217.5-71T120-480q45-118 142.5-189T480-740q120 0 217.5 71T840-480q-45 118-142.5 189T480-220Zm0-80q88 0 161-48t112-132q-39-84-112-132t-161-48q-88 0-161 48T207-480q39 84 112 132t161 48Zm0-40q58 0 99-41t41-99q0-58-41-99t-99-41q-58 0-99 41t-41 99q0 58 41 99t99 41Zm0-80q-25 0-42.5-17.5T420-480q0-25 17.5-42.5T480-540q25 0 42.5 17.5T540-480q0 25-17.5 42.5T480-420ZM40-720v-120q0-33 23.5-56.5T120-920h120v80H120v120H40Zm800 0v-120H720v-80h120q33 0 56.5 23.5T920-840v120h-80ZM480-480Z"/></svg>
           </div>
           <span class="text-slate-800 font-semibold text-lg tracking-tight">Proctor</span>
         </div>
@@ -50,7 +50,7 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
 
         @if (servicio.cargando() && !sesionCargada()) {
           <div class="flex flex-col items-center gap-3">
-            <svg class="w-8 h-8 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+            <svg class="w-8 h-8 animate-spin text-brand" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
             </svg>
@@ -71,7 +71,7 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
             <button
               type="button"
               (click)="router.navigate(['/'])"
-              class="w-full px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+              class="w-full px-4 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-secondary rounded-xl transition-colors"
             >
               Regresar al inicio
             </button>
@@ -83,8 +83,8 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
 
             <!-- Encabezado -->
             <div class="flex flex-col items-center mb-6">
-              <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <div class="w-14 h-14 bg-brand/10 rounded-full flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
@@ -129,11 +129,11 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
                   </p>
                 </div>
               } @else {
-                <div class="flex gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg mb-5">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <div class="flex gap-3 p-3 bg-brand/10 border border-brand/20 rounded-lg mb-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p class="text-xs text-blue-700 leading-relaxed">
+                  <p class="text-xs text-brand leading-relaxed">
                     <strong>¡Examen iniciado!</strong> Selecciona tu nombre y comparte tu pantalla para comenzar.
                   </p>
                 </div>
@@ -151,7 +151,7 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
                   [ngModel]="alumnoIdSeleccionado()"
                   (ngModelChange)="alumnoIdSeleccionado.set($event)"
                   [disabled]="yaUnido()"
-                  class="w-full px-3 py-3 text-sm text-slate-800 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:bg-slate-50 disabled:text-slate-500"
+                  class="w-full px-3 py-3 text-sm text-slate-800 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand appearance-none disabled:bg-slate-50 disabled:text-slate-500"
                 >
                   <option value="">Elige tu nombre de la lista...</option>
                   @for (alumno of servicio.listaAlumnos(); track alumno.id) {
@@ -200,8 +200,8 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
                 (click)="unirseASala()"
                 [disabled]="!puedeUnirse() || uniendose()"
                 class="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white rounded-xl transition-colors mb-4"
-                [class.bg-blue-600]="puedeUnirse() && !uniendose()"
-                [class.hover:bg-blue-700]="puedeUnirse() && !uniendose()"
+                [class.bg-brand]="puedeUnirse() && !uniendose()"
+                [class.hover:bg-brand-secondary]="puedeUnirse() && !uniendose()"
                 [class.bg-slate-300]="!puedeUnirse() || uniendose()"
                 [class.cursor-not-allowed]="!puedeUnirse() || uniendose()"
               >
@@ -262,21 +262,21 @@ import { ScreenSharePromptComponent } from './components/screen-share-prompt/scr
 })
 export class SalaEsperaComponent implements OnInit, OnDestroy {
   // ── Dependencias ────────────────────────────────────────────────
-  readonly servicio    = inject(ExamenActivoService);
+  readonly servicio = inject(ExamenActivoService);
   private readonly peerService = inject(PeerService);
-  private readonly route  = inject(ActivatedRoute);
+  private readonly route = inject(ActivatedRoute);
   readonly router = inject(Router);
 
   // ── Estado ───────────────────────────────────────────────────────
 
   readonly alumnoIdSeleccionado = signal('');
-  readonly pantallaCompartida   = signal(false);
+  readonly pantallaCompartida = signal(false);
   private streamPantalla: MediaStream | null = null;
 
   /** Bug 1: true cuando el alumno ya insertó sesion_alumnos con 'unido' */
-  readonly yaUnido    = signal(false);
-  readonly uniendose  = signal(false);
-  readonly iniciando  = signal(false);
+  readonly yaUnido = signal(false);
+  readonly uniendose = signal(false);
+  readonly iniciando = signal(false);
   readonly sesionCargada = signal(false);
 
   /**
@@ -303,7 +303,7 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
      */
     effect(() => {
       const estado = this.servicio.sesion()?.estado;
-      const unido  = this.yaUnido();
+      const unido = this.yaUnido();
 
       if (estado === 'activa' && unido && !this.autoRedirigiendo) {
         this.autoRedirigiendo = true;
@@ -354,7 +354,7 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
     this.pantallaCompartida.set(true);
 
     // Conectar PeerJS al docente (para que vea la pantalla)
-    const sesion   = this.servicio.sesion();
+    const sesion = this.servicio.sesion();
     const alumnoId = this.alumnoIdSeleccionado();
 
     if (sesion && alumnoId) {

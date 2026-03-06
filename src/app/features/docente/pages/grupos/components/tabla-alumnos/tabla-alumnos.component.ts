@@ -43,7 +43,7 @@ const ALUMNOS_POR_PAGINA = 5;
             placeholder="Buscar estudiante o ID..."
             class="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg
                    text-slate-800 placeholder-slate-400 bg-white
-                   focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                   focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand
                    transition-colors"
             aria-label="Buscar alumno"
           />
@@ -93,7 +93,7 @@ const ALUMNOS_POR_PAGINA = 5;
                   <td class="px-4 py-3 hidden md:table-cell">
                     @if (grupoNombre()) {
                       <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs
-                                   font-medium bg-blue-50 text-blue-700">
+                                   font-medium bg-brand/10 text-brand">
                         {{ grupoNombre() }}
                       </span>
                     }
@@ -105,7 +105,7 @@ const ALUMNOS_POR_PAGINA = 5;
                       <button
                         type="button"
                         (click)="onEditarAlumno(alumno)"
-                        class="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                        class="p-1.5 rounded-md text-slate-400 hover:text-brand hover:bg-brand/10 transition-colors cursor-pointer"
                         aria-label="Editar"
                         title="Editar"
                       >
@@ -155,10 +155,10 @@ const ALUMNOS_POR_PAGINA = 5;
                 <button
                   (click)="cambiarPagina(pagina)"
                   class="w-7 h-7 rounded-md text-xs font-medium transition-colors cursor-pointer"
-                  [class.bg-blue-600]="pagina === paginaActual()"
-                  [class.text-white]="pagina === paginaActual()"
-                  [class.text-slate-600]="pagina !== paginaActual()"
-                  [class.hover:bg-gray-100]="pagina !== paginaActual()"
+                  [class.bg-brand]="paginaActual() === pagina"
+                  [class.text-white]="paginaActual() === pagina"
+                  [class.text-slate-600]="paginaActual() !== pagina"
+                  [class.hover:bg-gray-100]="paginaActual() !== pagina"
                   [attr.aria-current]="pagina === paginaActual() ? 'page' : null"
                 >
                   {{ pagina }}

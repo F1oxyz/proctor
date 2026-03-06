@@ -100,7 +100,7 @@ import { PreguntaActiva } from '../../../../services/examen-activo.service';
           placeholder="Escribe tu respuesta aquí..."
           rows="6"
           maxlength="2000"
-          class="w-full px-4 py-3 text-sm text-slate-800 border border-slate-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400 leading-relaxed"
+          class="w-full px-4 py-3 text-sm text-slate-800 border border-slate-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent placeholder:text-slate-400 leading-relaxed"
           aria-label="Tu respuesta"
         ></textarea>
 

@@ -159,7 +159,7 @@ export type EstadoTile = 'activo' | 'idle' | 'flagged' | 'offline' | 'enviado';
 
           <div class="min-w-0">
             <p class="text-xs font-semibold text-slate-800 truncate">
-              {{ alumno().alumno_nombre ?? '—' }}
+              {{ alumno().alumno_nombre }}
             </p>
             <!-- Tipo: Web Browser si peer_id empieza con 'alumno-', Desktop App si no -->
             <p class="text-xs text-slate-400 truncate">
@@ -173,7 +173,7 @@ export type EstadoTile = 'activo' | 'idle' | 'flagged' | 'offline' | 'enviado';
           <button
             type="button"
             (click)="enviarRecordatorio.emit(alumno())"
-            class="shrink-0 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
+            class="shrink-0 text-xs font-medium text-brand hover:text-brand/80 transition-colors"
           >
             Avisar
           </button>
@@ -256,7 +256,7 @@ export class AlumnoTileComponent {
     const estado = this.alumno().estado;
 
     if (estado === 'enviado') return 'enviado';
-    if (!this.stream())       return 'offline';
+    if (!this.stream()) return 'offline';
     if (estado === 'en_progreso') return 'activo';
     return 'activo';
   });
@@ -275,8 +275,8 @@ export class AlumnoTileComponent {
   readonly colorAvatar = computed(() => {
     const nombre = this.alumno().alumno_nombre ?? 'X';
     const colores = [
-      '#3b82f6','#8b5cf6','#06b6d4','#10b981',
-      '#f59e0b','#ef4444','#6366f1','#84cc16',
+      '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981',
+      '#f59e0b', '#ef4444', '#6366f1', '#84cc16',
     ];
     let hash = 0;
     for (let i = 0; i < nombre.length; i++) {

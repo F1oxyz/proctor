@@ -42,7 +42,7 @@ import {
         [attr.aria-label]="'Pregunta ' + preguntaActual() + ' de ' + totalPreguntas()"
       >
         <div
-          class="h-full bg-blue-600 rounded-full transition-all duration-300"
+          class="h-full bg-brand rounded-full transition-all duration-300"
           [style.width]="porcentaje() + '%'"
         ></div>
       </div>

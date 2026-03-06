@@ -17,8 +17,8 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 
-import { ExamenesService, SesionResumen }  from '../../services/examenes.service';
-import { SesionesService }  from '../../services/sesiones.service';
+import { ExamenesService, SesionResumen } from '../../services/examenes.service';
+import { SesionesService } from '../../services/sesiones.service';
 import {
   NavbarComponent,
 } from '../../../../shared/components/navbar/navbar.component';
@@ -56,7 +56,7 @@ import { ExamenConGrupo, IniciarExamenPayload } from '../../services/examenes.se
         </div>
         <a
           routerLink="/docente/examenes/nuevo"
-          class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
+          class="flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand/90 text-white text-sm font-semibold rounded-xl transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -124,7 +124,7 @@ import { ExamenConGrupo, IniciarExamenPayload } from '../../services/examenes.se
                       <!-- Editar -->
                       <a
                         [routerLink]="['/docente/examenes', examen.id]"
-                        class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        class="p-1.5 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-colors"
                         aria-label="Editar examen"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -219,7 +219,7 @@ import { ExamenConGrupo, IniciarExamenPayload } from '../../services/examenes.se
                       @if (sesion.estado === 'finalizada') {
                         <a
                           [routerLink]="['/docente/resultados', sesion.id]"
-                          class="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                          class="text-xs font-semibold text-brand hover:text-brand/80 hover:underline"
                         >
                           Ver resultados
                         </a>
@@ -291,17 +291,17 @@ import { ExamenConGrupo, IniciarExamenPayload } from '../../services/examenes.se
 })
 export class ExamenesComponent implements OnInit {
   // ── Dependencias ────────────────────────────────────────────────
-  readonly servicio       = inject(ExamenesService);
+  readonly servicio = inject(ExamenesService);
   private readonly sesionesService = inject(SesionesService);
   private readonly router = inject(Router);
 
   // ── Estado ───────────────────────────────────────────────────────
-  readonly examenParaIniciar  = signal<ExamenConGrupo | null>(null);
+  readonly examenParaIniciar = signal<ExamenConGrupo | null>(null);
   readonly examenParaEliminar = signal<ExamenConGrupo | null>(null);
-  readonly iniciandoExamen    = signal(false);
+  readonly iniciandoExamen = signal(false);
 
   /** Bug 6: historial de sesiones */
-  readonly sesionesRecientes  = signal<SesionResumen[]>([]);
+  readonly sesionesRecientes = signal<SesionResumen[]>([]);
 
   // ── Ciclo de vida ─────────────────────────────────────────────
 

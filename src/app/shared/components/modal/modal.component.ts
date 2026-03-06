@@ -65,7 +65,7 @@ import { DOCUMENT } from '@angular/common';
             <button
               (click)="cerrar.emit()"
               class="absolute top-4 right-4 p-1 rounded-md text-slate-400
-                     hover:text-slate-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                     hover:text-brand hover:bg-brand/10 transition-colors cursor-pointer"
               aria-label="Cerrar modal"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">

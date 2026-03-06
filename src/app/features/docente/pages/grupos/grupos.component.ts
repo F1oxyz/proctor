@@ -88,8 +88,8 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
 
           <!-- Total Estudiantes -->
           <div class="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4">
-            <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#0065e0"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
+            <div class="w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="var(--color-brand)"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
             </div>
             <div>
               <p class="text-xs text-slate-500">Total Estudiantes</p>
@@ -99,8 +99,8 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
 
           <!-- Grupos creados -->
           <div class="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4">
-            <div class="w-10 h-10 rounded-full bg-violet-50 flex items-center justify-center shrink-0">
-              <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+            <div class="w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
               </svg>
             </div>
@@ -116,15 +116,15 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
         <div class="flex items-center gap-1 border-b border-gray-100 mb-5">
           <button
             class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer"
-            [class.border-blue-600]="tabActivo() === 'activos'"
-            [class.text-blue-600]="tabActivo() === 'activos'"
+            [class.border-brand]="tabActivo() === 'activos'"
+            [class.text-brand]="tabActivo() === 'activos'"
             [class.border-transparent]="tabActivo() !== 'activos'"
             [class.text-slate-500]="tabActivo() !== 'activos'"
             (click)="tabActivo.set('activos')"
             [attr.aria-selected]="tabActivo() === 'activos'"
           >
             Grupos Activos
-            <span class="ml-1.5 px-1.5 py-0.5 rounded-full text-xs bg-blue-50 text-blue-600">
+            <span class="ml-1.5 px-1.5 py-0.5 rounded-full text-xs bg-brand/10 text-brand">
               {{ gruposService.grupos().length }}
             </span>
           </button>
@@ -174,8 +174,8 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
                   <div class="flex items-center justify-between px-5 py-4">
                     <div class="flex items-center gap-3">
                       <!-- Ícono del grupo -->
-                      <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#0065e0"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
+                      <div class="w-9 h-9 rounded-lg bg-brand/10 flex items-center justify-center shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="var(--color-brand)"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
                       </div>
                       <div>
                         <h3 class="text-sm font-semibold text-slate-800">{{ grupo.nombre }}</h3>
@@ -191,7 +191,7 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
                       <button
                         (click)="toggleAlumnos(grupo)"
                         class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
-                               text-slate-600 hover:text-blue-600 hover:bg-blue-50
+                               text-slate-600 hover:text-brand hover:bg-brand/10
                                rounded-md transition-colors cursor-pointer"
                         [attr.aria-expanded]="grupoExpandido() === grupo.id"
                         [attr.aria-label]="grupoExpandido() === grupo.id ? 'Ocultar alumnos' : 'Ver alumnos'"
@@ -307,7 +307,7 @@ import { Alumno, GrupoConStats } from '../../../../shared/models';
               placeholder="Nombre completo"
               class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg
                      text-slate-800 placeholder-slate-400
-                     focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                     focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand
                      transition-colors mb-4"
               (keydown.enter)="guardarNombreAlumno()"
             />

@@ -120,7 +120,7 @@ interface RespuestaConDatos {
 
             <!-- Grupo -->
             <span class="flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#62748e"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0v-65q0-26-6.5-49T754-397q11-2 22.5-2.5t23.5-.5q72 0 116 26.5t44 70.5v63H780Zm-455-80h311q-10-20-55.5-35T480-370q-55 0-100.5 15T325-320ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-33 0-56.5-23.5T720-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Zm0-80q17 0 28.5-11.5T520-600q0-17-11.5-28.5T480-640q-17 0-28.5 11.5T440-600q0 17 11.5 28.5T480-560Zm1 240Zm-1-280Z"/></svg>
               {{ sesionInfo()?.grupo_nombre }}
             </span>
 
@@ -241,8 +241,8 @@ interface RespuestaConDatos {
                       app-fila-resultado
                       [fila]="fila"
                       [minimoAprobatorio]="sesionInfo()?.minimo_aprobatorio ?? 60"
-                      class="hover:bg-blue-50 transition-colors cursor-pointer"
-                      [class.bg-blue-50]="alumnoSeleccionado()?.id === fila.id"
+                      class="hover:bg-brand/5 transition-colors cursor-pointer"
+                      [class.bg-brand/10]="alumnoSeleccionado()?.id === fila.id"
                       (click)="abrirRespuestasAlumno(fila)"
                     ></tr>
                   }
@@ -452,7 +452,7 @@ interface RespuestaConDatos {
 export class ResultadosComponent implements OnInit {
   // ── Dependencias ────────────────────────────────────────────────
   private readonly supabase = inject(SupabaseService);
-  private readonly route    = inject(ActivatedRoute);
+  private readonly route = inject(ActivatedRoute);
 
   // ── Estado ───────────────────────────────────────────────────────
 
@@ -466,7 +466,7 @@ export class ResultadosComponent implements OnInit {
   readonly totalPreguntas = signal(0);
 
   readonly cargando = signal(false);
-  readonly error    = signal<string | null>(null);
+  readonly error = signal<string | null>(null);
 
   // ── Bug 5: Estado del panel de respuestas ────────────────────────
 
@@ -476,9 +476,9 @@ export class ResultadosComponent implements OnInit {
   /** Respuestas del alumno seleccionado */
   readonly respuestasAlumno = signal<RespuestaConDatos[]>([]);
 
-  readonly panelAbierto         = signal(false);
-  readonly cargandoRespuestas   = signal(false);
-  readonly calificando          = signal(false);
+  readonly panelAbierto = signal(false);
+  readonly cargandoRespuestas = signal(false);
+  readonly calificando = signal(false);
 
   // ── Computed ─────────────────────────────────────────────────────
 
@@ -561,11 +561,11 @@ export class ResultadosComponent implements OnInit {
     const examen = (sesionData as any).examenes;
 
     this.sesionInfo.set({
-      examen_titulo:      examen?.titulo ?? '—',
-      grupo_nombre:       examen?.grupos?.nombre ?? '—',
-      iniciada_en:        sesionData.iniciada_en,
-      duracion_min:       examen?.duracion_min ?? 0,
-      codigo_acceso:      sesionData.codigo_acceso,
+      examen_titulo: examen?.titulo ?? '—',
+      grupo_nombre: examen?.grupos?.nombre ?? '—',
+      iniciada_en: sesionData.iniciada_en,
+      duracion_min: examen?.duracion_min ?? 0,
+      codigo_acceso: sesionData.codigo_acceso,
       minimo_aprobatorio: examen?.minimo_aprobatorio ?? 60,
     });
 
@@ -600,7 +600,7 @@ export class ResultadosComponent implements OnInit {
     const filasEnriquecidas: SesionAlumnoConDatos[] = (alumnosData ?? []).map(
       (sa: any) => ({
         ...sa,
-        alumno_nombre:   sa.alumnos?.nombre_completo ?? '—',
+        alumno_nombre: sa.alumnos?.nombre_completo ?? '—',
         total_preguntas: this.totalPreguntas(), // para calcular sin_cumplir en fila
       })
     );
@@ -654,13 +654,13 @@ export class ResultadosComponent implements OnInit {
     }
 
     const enriquecidas: RespuestaConDatos[] = (data ?? []).map((r: any) => ({
-      id:                r.id,
-      es_correcta:       r.es_correcta,
+      id: r.id,
+      es_correcta: r.es_correcta,
       respuesta_abierta: r.respuesta_abierta,
-      opcion_id:         r.opcion_id,
-      pregunta_texto:    r.preguntas?.texto ?? '—',
-      tipo:              r.preguntas?.tipo ?? 'opcion_multiple',
-      opcion_texto:      r.opciones?.texto ?? null,
+      opcion_id: r.opcion_id,
+      pregunta_texto: r.preguntas?.texto ?? '—',
+      tipo: r.preguntas?.tipo ?? 'opcion_multiple',
+      opcion_texto: r.opciones?.texto ?? null,
     }));
 
     this.respuestasAlumno.set(enriquecidas);
@@ -711,7 +711,7 @@ export class ResultadosComponent implements OnInit {
     const respuestas = this.respuestasAlumno();
     const totalPreguntas = this.totalPreguntas();
 
-    const totalCorrectas   = respuestas.filter((r) => r.es_correcta === true).length;
+    const totalCorrectas = respuestas.filter((r) => r.es_correcta === true).length;
     const totalIncorrectas = respuestas.filter((r) => r.es_correcta === false).length;
     const porcentaje = totalPreguntas > 0
       ? Math.round((totalCorrectas / totalPreguntas) * 100)
@@ -721,7 +721,7 @@ export class ResultadosComponent implements OnInit {
     await this.supabase.client
       .from('sesion_alumnos')
       .update({
-        total_correctas:   totalCorrectas,
+        total_correctas: totalCorrectas,
         total_incorrectas: totalIncorrectas,
         porcentaje,
       })
@@ -730,7 +730,7 @@ export class ResultadosComponent implements OnInit {
     // Actualizar en el signal alumnoSeleccionado
     const alumnoActualizado: SesionAlumnoConDatos = {
       ...alumno,
-      total_correctas:   totalCorrectas,
+      total_correctas: totalCorrectas,
       total_incorrectas: totalIncorrectas,
       porcentaje,
     };

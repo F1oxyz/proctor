@@ -4,7 +4,7 @@
 // de carga (spinner animado).
 //
 // Variantes:
-//   'primary'   → Azul (acciones principales)
+//   'primary'   → Blaze Orange (acciones principales)
 //   'secondary' → Contorno gris (acciones secundarias)
 //   'danger'    → Rojo (acciones destructivas)
 //   'ghost'     → Transparente con texto (acciones terciarias)
@@ -125,7 +125,7 @@ export class BtnComponent {
     // Variantes
     const variantes: Record<BtnVariante, string> = {
       primary:
-        'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-300 focus:ring-blue-500',
+        'bg-brand text-white hover:bg-brand/90 active:bg-brand/80 disabled:bg-brand/30 focus:ring-brand',
       secondary:
         'bg-white text-slate-700 border border-gray-200 hover:bg-gray-50 active:bg-gray-100 disabled:bg-gray-50 disabled:text-gray-400 focus:ring-gray-300',
       danger:

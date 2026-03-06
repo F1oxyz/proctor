@@ -78,7 +78,7 @@ import {
         class="w-full flex items-center justify-center gap-3 px-5 py-3.5 text-sm font-semibold text-white rounded-xl transition-colors"
         [class.bg-slate-800]="!compartiendo()"
         [class.hover:bg-slate-700]="!compartiendo()"
-        [class.bg-green-600]="compartiendo()"
+        [class.bg-brand]="compartiendo()"
         [class.cursor-not-allowed]="compartiendo()"
         [class.opacity-80]="compartiendo()"
         [attr.aria-busy]="solicitando()"
@@ -165,8 +165,8 @@ export class ScreenSharePromptComponent {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           frameRate: { ideal: 5, max: 10 },   // bajo FPS para no saturar red
-          width:     { ideal: 1280 },
-          height:    { ideal: 720 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
         audio: false, // no necesitamos audio
       });

@@ -56,7 +56,7 @@ import { NgTemplateOutlet } from '@angular/common';
     <!-- Template del SVG spinner (reutilizado en ambos casos) -->
     <ng-template #spinnerTpl>
       <svg
-        [class]="'animate-spin text-blue-600 ' + tamanoClase()"
+        [class]="'animate-spin text-brand ' + tamanoClase()"
         fill="none"
         viewBox="0 0 24 24"
         aria-hidden="true"

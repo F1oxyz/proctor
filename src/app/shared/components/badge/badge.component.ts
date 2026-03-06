@@ -65,8 +65,8 @@ export class BadgeComponent {
   etiquetaMostrar = computed(() => {
     if (this.etiqueta()) return this.etiqueta();
     const textos: Record<EstadoBadge, string> = {
-      activo:  'Activo',
-      idle:    'Inactivo',
+      activo: 'Activo',
+      idle: 'Inactivo',
       flagged: 'Marcado',
       offline: 'Sin conexión',
       enviado: 'Enviado',
@@ -77,11 +77,11 @@ export class BadgeComponent {
   /** Clases del contenedor del badge según el estado */
   clases = computed(() => {
     const estilos: Record<EstadoBadge, string> = {
-      activo:  'bg-emerald-50 text-emerald-700',
-      idle:    'bg-amber-50 text-amber-700',
+      activo: 'bg-emerald-50 text-emerald-700',
+      idle: 'bg-amber-50 text-amber-700',
       flagged: 'bg-red-50 text-red-700',
       offline: 'bg-gray-100 text-gray-500',
-      enviado: 'bg-blue-50 text-blue-700',
+      enviado: 'bg-brand/10 text-brand',
     };
     return estilos[this.estado()];
   });
@@ -89,11 +89,11 @@ export class BadgeComponent {
   /** Clases del punto indicador según el estado */
   puntoCl = computed(() => {
     const puntos: Record<EstadoBadge, string> = {
-      activo:  'bg-emerald-500',
-      idle:    'bg-amber-500',
+      activo: 'bg-emerald-500',
+      idle: 'bg-amber-500',
       flagged: 'bg-red-500',
       offline: 'bg-gray-400',
-      enviado: 'bg-blue-500',
+      enviado: 'bg-brand',
     };
     return puntos[this.estado()];
   });

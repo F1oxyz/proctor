@@ -35,7 +35,7 @@ import { SesionAlumnoConDatos } from '../../../../../../shared/models/index';
         >
           {{ iniciales() }}
         </div>
-        {{ fila().alumno_nombre ?? '—' }}
+        {{ fila().alumno_nombre }}
       </div>
     </td>
 
@@ -83,8 +83,8 @@ import { SesionAlumnoConDatos } from '../../../../../../shared/models/index';
         class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
         [class.bg-green-100]="fila().estado === 'enviado'"
         [class.text-green-700]="fila().estado === 'enviado'"
-        [class.bg-blue-100]="fila().estado === 'en_progreso'"
-        [class.text-blue-700]="fila().estado === 'en_progreso'"
+        [class.bg-brand/10]="fila().estado === 'en_progreso'"
+        [class.text-brand]="fila().estado === 'en_progreso'"
         [class.bg-slate-100]="fila().estado === 'unido'"
         [class.text-slate-600]="fila().estado === 'unido'"
       >

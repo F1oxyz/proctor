@@ -49,7 +49,7 @@ import { EstadoSesion } from '../../models/sesion.model';
       <div class="flex items-center gap-2 shrink-0">
         <div class="flex items-center gap-2">
           <div class="w-7 h-7 rounded-md flex items-center justify-center">
-            <svg  xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#0065e0"><path d="M240-40H120q-33 0-56.5-23.5T40-120v-120h80v120h120v80Zm480 0v-80h120v-120h80v120q0 33-23.5 56.5T840-40H720ZM480-220q-120 0-217.5-71T120-480q45-118 142.5-189T480-740q120 0 217.5 71T840-480q-45 118-142.5 189T480-220Zm0-80q88 0 161-48t112-132q-39-84-112-132t-161-48q-88 0-161 48T207-480q39 84 112 132t161 48Zm0-40q58 0 99-41t41-99q0-58-41-99t-99-41q-58 0-99 41t-41 99q0 58 41 99t99 41Zm0-80q-25 0-42.5-17.5T420-480q0-25 17.5-42.5T480-540q25 0 42.5 17.5T540-480q0 25-17.5 42.5T480-420ZM40-720v-120q0-33 23.5-56.5T120-920h120v80H120v120H40Zm800 0v-120H720v-80h120q33 0 56.5 23.5T920-840v120h-80ZM480-480Z"/></svg>
+            <svg  xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="var(--color-brand)"><path d="M240-40H120q-33 0-56.5-23.5T40-120v-120h80v120h120v80Zm480 0v-80h120v-120h80v120q0 33-23.5 56.5T840-40H720ZM480-220q-120 0-217.5-71T120-480q45-118 142.5-189T480-740q120 0 217.5 71T840-480q-45 118-142.5 189T480-220Zm0-80q88 0 161-48t112-132q-39-84-112-132t-161-48q-88 0-161 48T207-480q39 84 112 132t161 48Zm0-40q58 0 99-41t41-99q0-58-41-99t-99-41q-58 0-99 41t-41 99q0 58 41 99t99 41Zm0-80q-25 0-42.5-17.5T420-480q0-25 17.5-42.5T480-540q25 0 42.5 17.5T540-480q0 25-17.5 42.5T480-420ZM40-720v-120q0-33 23.5-56.5T120-920h120v80H120v120H40Zm800 0v-120H720v-80h120q33 0 56.5 23.5T920-840v120h-80ZM480-480Z"/></svg>
           </div>
           <span class="text-slate-800 font-semibold text-lg tracking-tight">Proctor</span>
         </div>
@@ -63,7 +63,7 @@ import { EstadoSesion } from '../../models/sesion.model';
         <div class="flex items-center gap-1" role="navigation" aria-label="Navegación del docente">
           <a
             routerLink="/docente/grupos"
-            routerLinkActive="text-blue-600 bg-blue-50"
+            routerLinkActive="text-brand bg-brand/10"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium
                    text-slate-600 hover:text-slate-800 hover:bg-gray-50 transition-colors"
             ariaCurrentWhenActive="page"
@@ -73,7 +73,7 @@ import { EstadoSesion } from '../../models/sesion.model';
 
           <a
             routerLink="/docente/examenes"
-            routerLinkActive="text-blue-600 bg-blue-50"
+            routerLinkActive="text-brand bg-brand/10"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium
                    text-slate-600 hover:text-slate-800 hover:bg-gray-50 transition-colors"
             ariaCurrentWhenActive="page"
@@ -144,7 +144,7 @@ import { EstadoSesion } from '../../models/sesion.model';
       @if (modo() === 'student') {
         <!-- Nombre del alumno -->
         <div class="flex items-center gap-2 text-sm">
-          <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-semibold text-blue-700">
+          <div class="w-7 h-7 rounded-full bg-brand/10 flex items-center justify-center text-xs font-semibold text-brand">
             {{ inicialesAlumno() }}
           </div>
           @if (alumnoNombre()) {
