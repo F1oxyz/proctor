@@ -37,6 +37,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { ExamenActivoService } from '../../services/examen-activo.service';
+import { PeerService } from '../../../../core/services/peer.service';
 import { TemporizadorComponent } from './components/temporizador/temporizador.component';
 import { BarraProgresoComponent } from './components/barra-progreso/barra-progreso.component';
 import { PreguntaOpcionMultipleComponent } from './components/pregunta-opcion-multiple/pregunta-opcion-multiple.component';
@@ -242,8 +243,9 @@ import { OpcionActiva } from '../../services/examen-activo.service';
 export class ExamenComponent implements OnInit, OnDestroy {
   // ── Dependencias ────────────────────────────────────────────────
   readonly servicio  = inject(ExamenActivoService);
-  private readonly route  = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  private readonly route      = inject(ActivatedRoute);
+  private readonly router     = inject(Router);
+  private readonly peerService = inject(PeerService);
 
   // ── Estado del temporizador ───────────────────────────────────────
 
@@ -320,6 +322,8 @@ export class ExamenComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     // Limpiar el intervalo al salir de la página
     this.detenerTemporizador();
+    // Detener el stream de pantalla y cerrar la conexión PeerJS al finalizar el examen
+    this.peerService.detenerStreamAlumno();
   }
 
   // ── Temporizador ──────────────────────────────────────────────

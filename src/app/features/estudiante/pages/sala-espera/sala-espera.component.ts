@@ -288,6 +288,14 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
   readonly iniciando  = signal(false);
   readonly sesionCargada = signal(false);
 
+  /**
+   * true cuando el alumno navega al examen.
+   * En ese caso NO se detiene el stream en ngOnDestroy:
+   * el stream debe continuar durante el examen.
+   * ExamenComponent es responsable de detenerlo al finalizar.
+   */
+  private navegandoAEvaluacion = false;
+
   // ── Computed ─────────────────────────────────────────────────────
 
   readonly nombreAlumnoSeleccionado = computed(() =>
@@ -316,7 +324,9 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.streamPantalla) {
+    // Solo detener el stream si el alumno abandona el flujo del examen.
+    // Si navega a /evaluacion, el stream debe continuar — ExamenComponent lo limpia.
+    if (!this.navegandoAEvaluacion && this.streamPantalla) {
       this.streamPantalla.getTracks().forEach((t) => t.stop());
     }
   }
@@ -391,6 +401,7 @@ export class SalaEsperaComponent implements OnInit, OnDestroy {
     if (ok) {
       const codigo = this.route.snapshot.paramMap.get('codigo');
       sessionStorage.setItem(`proctor_alumno_${codigo}`, alumno.id);
+      this.navegandoAEvaluacion = true;   // Evita que ngOnDestroy detenga el stream
       this.router.navigate(['/examen', codigo, 'evaluacion']);
     }
   }

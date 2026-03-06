@@ -74,6 +74,12 @@ export class PeerService {
   /** Mensaje de error de PeerJS */
   readonly error = signal<string | null>(null);
 
+  /**
+   * Stream de pantalla del alumno (modo emisor).
+   * Se guarda aquí para poder detenerlo desde ExamenComponent al finalizar.
+   */
+  private _streamAlumno: MediaStream | null = null;
+
   /** Contador de reintentos cuando el ID del receptor está ocupado */
   private _retryCount = 0;
   private readonly _MAX_RETRIES = 4;
@@ -240,6 +246,9 @@ export class PeerService {
     alumnoId: string,
     sesionId: string
   ): Promise<string | null> {
+    // Guardar referencia para poder detener el stream al finalizar el examen
+    this._streamAlumno = stream;
+
     try {
       const { Peer } = await import('peerjs');
 
@@ -296,6 +305,24 @@ export class PeerService {
   }
 
   // ── Utilidades ───────────────────────────────────────────────────
+
+  /**
+   * Detiene el stream de pantalla del alumno y cierra la llamada PeerJS.
+   * Llamar desde ExamenComponent.ngOnDestroy() al terminar el examen.
+   */
+  detenerStreamAlumno(): void {
+    if (this._streamAlumno) {
+      this._streamAlumno.getTracks().forEach((t) => t.stop());
+      this._streamAlumno = null;
+    }
+    // Destruir el peer del alumno (libera recursos PeerJS)
+    if (this.peer) {
+      this.peer.destroy();
+      this.peer = null;
+    }
+    this.miPeerId.set(null);
+    this.listo.set(false);
+  }
 
   /**
    * Cierra todas las conexiones y destruye la instancia de PeerJS.
