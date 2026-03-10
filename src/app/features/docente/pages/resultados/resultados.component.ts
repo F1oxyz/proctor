@@ -321,14 +321,14 @@ interface RespuestaConDatos {
           } @else {
             @for (resp of respuestasAlumno(); track resp.id; let i = $index) {
               <div
-                class="border rounded-xl overflow-hidden"
+                class="border rounded-xl overflow-hidden shrink-0"
                 [class.border-green-200]="resp.es_correcta === true"
                 [class.border-red-200]="resp.es_correcta === false"
                 [class.border-slate-200]="resp.es_correcta === null"
               >
                 <!-- Cabecera de la pregunta -->
                 <div
-                  class="flex items-start justify-between px-4 py-3 text-xs font-semibold"
+                  class="flex items-start justify-between px-4 py-2.5 text-xs font-semibold"
                   [class.bg-green-50]="resp.es_correcta === true"
                   [class.bg-red-50]="resp.es_correcta === false"
                   [class.bg-slate-50]="resp.es_correcta === null"
@@ -373,12 +373,14 @@ interface RespuestaConDatos {
                   } @else {
                     <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                       <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Respuesta:</p>
-                      <p class="text-sm text-slate-700 whitespace-pre-wrap">
-                        {{ resp.respuesta_abierta?.trim() || '(Sin respuesta)' }}
-                      </p>
+                      <div class="max-h-[160px] overflow-y-auto">
+                        <p class="text-sm text-slate-700 whitespace-pre-wrap min-h-5">
+                          {{ resp.respuesta_abierta?.trim() || '(Sin respuesta)' }}
+                        </p>
+                      </div>
                     </div>
 
-                    <!-- Bug 5: Botones de calificación para preguntas abiertas -->
+                    <!-- Botones de calificación para preguntas abiertas -->
                     <div class="flex gap-2 mt-1">
                       <button
                         type="button"
